@@ -66,8 +66,18 @@ var tests = {
 				assert.equal(caller, evalTest);
 			});
 		this["default eval"]();
-	}
+	},
+
 	
+	"secureMethods": function(){
+		var callback = function(){
+			assert.ok( false, "callback method should not be executed" );
+		};
+		obj = {
+			mth: function(){}
+		};
+		secure.secureMethods(obj, {}, callback);
+	}
 		
 };
 
