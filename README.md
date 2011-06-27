@@ -2,10 +2,11 @@ node-secure
 ===========
 
 ### Description
-node-secure is a tiny module for Node.JS which protects global variables (like undefined, NaN, Infinity)
-from being overridden. It also brings some additional mechanism for code protection. <br/>
-Author: David de Rosier<br/>
-License: public domain 
+**node-secure** is a tiny module for Node.JS which protects some globals (`undefined`, `NaN`, 
+`Infinity`, `eval`, `isNaN`)  from being overridden and adds functionality to protect your
+modules from hacking and code injection<br/>
+Author: **David de Rosier**<br/>
+License: **public domain**
 
 ### Server-side must be secured!
 
@@ -56,7 +57,7 @@ Object.defineProperty && (function(){
    NaN = 0/0;
    Infinity = 1/0;
    
-   // make globals read only and not-configurable
+   // make globals read only and non-configurable
    ["undefined", "NaN", "Infinity"].forEach(function(key){
       Object.defineProperty(global, key, {writable: false, configurable: false});
    });
@@ -65,13 +66,13 @@ Object.defineProperty && (function(){
 
 The code above is quite universal and will work on all environments (browsers, SSJS, Rhino, etc)
 which provide property descriptor functionality. I would recommend to copy-paste such
-code to the main modules of all your applications. 
+code to the main modules of all your applications (if you are not planning to use node-secure module). 
 
 
 ### spoon="strict mode"; there is no spoon!
 
-Some developers might say that we shouldn't bother of global variables in Node.JS, because 
-we have strict mode. Theoretically true, but... currently V8 supports all features of ECMAScript 5 excluding...
+Some developers might say that we shouldn't bother about global variables in Node.JS because 
+there is strict mode. Theoretically true, but... currently V8 supports all features of ECMAScript 5 excluding...
 the strict mode! Doors for insecurity remains open!
 
 
