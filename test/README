@@ -1,0 +1,17 @@
+This folder contains set of test cases for node-secure module.
+The tests had to be split into multiple files because they operate 
+on global variables and permanently change their values and property
+descriptors. 
+
+Available tests:
+
+TEST 1: node-secure-standard-test.js
+Checks the module with standard situation, when none of the globals
+has been overridden.
+
+TEST 2: node-secure-overridden-test.js
+Test with overridden global values.
+Globals are not originally protected here 
+
+ 
+
