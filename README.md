@@ -52,7 +52,7 @@ Object.defineProperty && (function(){
    // when "strict mode' is on we can leave - globals are protected by default
    if(!global) return;
    
-   // first lets redefine proper values in case they got overridden
+   // redefine proper values in case they got overridden
    undefined = void 0;
    NaN = 0/0;
    Infinity = 1/0;
@@ -66,13 +66,14 @@ Object.defineProperty && (function(){
 
 The code above is quite universal and will work on all environments (browsers, SSJS, Rhino, etc)
 which provide property descriptor functionality. I would recommend to copy-paste such
-code to the main modules of all your applications (if you are not planning to use node-secure module). 
+code to the main modules of all your applications (if you are not planning to use node-secure module -
+which gives much more control). 
 
 
 ### spoon="strict mode"; there is no spoon!
 
 Some developers might say that we shouldn't bother about global variables in Node.JS because 
-there is strict mode. Theoretically true, but... currently V8 supports all features of ECMAScript 5 excluding...
+there is a strict mode. Theoretically true, but... currently V8 supports all features of ECMAScript 5 excluding...
 the strict mode! Doors for insecurity remains open!
 
 
@@ -84,27 +85,28 @@ In particular:
 1. It protects the standard global variables (`undefined`, `NaN`, `Infinity`, `isNaN`) from being overridden.
 2. It gives an extra control on most insecure element of the language - `eval` function. With
 node-secure you will be able to track each execution of `eval` with typical for Node.JS 
-behavior - events. Every time someone executes `eval`, the module will emit an event with
-reference to executor function. Why to bother about events - wouldn't be better to just
-override the evil `eval` with empty function? Wel.. some of the modules you use may operate on `eval`. Better not to
-break existing functionality.   
+behavior - events. Every time someone executes `eval`, the module will emit an event with a
+reference to executor function. Why to bother about events? Wouldn't be better to just
+override the evil `eval` with empty function? Well.. some of the modules you use may operate on `eval`. 
+Better not to break the existing functionality.   
 3. The module provides two utility functions - `secureMethods` and `securePrivates`.
 First one protects all methods of given object from being overridden. Why? In most of the cases
-you wouldn't like to override your methods, so is better to keep them read-only - especially 
-in your custom modules.
+you wouldn't like to let your own methods being overridden by external code, so is better to keep them 
+read-only - especially in your custom modules.
+
 Second method makes all private-like elements of an object (named with underscore prefix) non-enumerable. 
 If you don't want to hide elements fully (using closures) and just use naming convention for it,
-you can add extra protection by hiding the private elements from being enumerable.
-4. There is risky situation when someone override and protect `eval` or standard globals before
+you can add an extra protection by hiding the private elements from being enumerable.
+4. There is a risky situation when someone override and protect `eval` or standard globals before
 you even load the node-secure module. In such case the module won't be able to secure
-the application. You can control such situation by calling `isSecure` method or by checking 
-`status` object, which will tell you exactly which element couldn't be secured. Moreover
-every time when protection of global elements will fail, the module will produce an _insecure_ event.   
+the application. However you can control this situation by calling `isSecure` method or by checking 
+`status` object. The status can tell you exactly which element couldn't be secured. Moreover
+every time when protection of global elements fails, the module will produce an _insecure_ event.   
 
 
 #### Examples
 
-Just load the module to protect standard globals and `eval` function 
+Just load the module to protect standard globals variables and the `eval` function 
 
 ```js
 require("node-secure");
