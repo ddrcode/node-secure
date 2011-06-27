@@ -213,12 +213,13 @@ var __ddrSecure = (function(){
 			config = null;
 		}
 		
+		config = config || {};
 		if( typeof config !== "object" ) {
 			throw new TypeError( "config is not an object" );
 		}
 	
 		if( errorCallback && !(errorCallback instanceof Function) ) {
-			throw new TypeError( "errorCallback is not an function" );
+			throw new TypeError( "errorCallback is not a function" );
 		}
 	
 		var cfg = {};
