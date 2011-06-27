@@ -104,12 +104,14 @@ every time when protection of global elements will fail, the module will produce
 #### Examples
 
 Just load the module to protect standard globals and `eval` function 
+
 ```js
 require("node-secure");
 undefined = 666; // nothing happen (in non strict mode there is no error, however the value won't be overridden)
 ```
 
 To control execution of `eval`, add the listener:
+
 ```js
 var secure = require("node-secure");
 secure.on("eval", function(caller){
@@ -118,6 +120,7 @@ secure.on("eval", function(caller){
 ```
 
 To check whether the module managed to protect all elements you can define another listener:
+
 ```js
 var secure = require("node-secure");
 secure.on("insecure", function(problems){
@@ -126,6 +129,7 @@ secure.on("insecure", function(problems){
 ```
 
 eventually you can directly check the statuses:
+
 ```js
 if( !secure.isSecure() ) {
    console.log("There are some security issues");
@@ -136,6 +140,7 @@ if( !secure.isSecure() ) {
 ```
 
 Finally you can protect your own objects. Consider it especially for your custom modules.
+
 ```js
 var secure = require("node-secure");
 exports.test = function(){...};
@@ -145,11 +150,13 @@ secure.secureMethods(exports);
 
 Code above just sets the writable flag to _false_ for all methods in given object. So you can always
 redefine the access with property descriptor, unless you make the methods non-configurable:
+
 ```js
 secure.secureMethods(exports, {configurable: false});
 ```
 
 Remember to hide the private-like elements of your object for `for..in` or `Object.keys` operations:
+
 ```js
 var secure = require("node-secure");
 obj = {
