@@ -165,6 +165,18 @@ var __ddrSecure = (function(){
 
 
 /**
+ * Tests whether the input parameter is a function. Additional test is required because
+ * V8 returns "function" as a result of typeof operator also for RegExps.
+ * @returns {boolean}
+ * @private
+ */
+var __isFunction = function(test){
+	return typeof test === "function" && test.call && test.apply && test.bind;
+};
+
+
+
+/**
  * This code snippet overrides the original eval function for better control
  * of unexpected execution. Every time the eval function will be called
  * the application will emit "eval" event, passing the code for execution
@@ -208,7 +220,7 @@ var __ddrSecure = (function(){
 		}
 		
 		// case when callback is a second parameter (config not provided)
-		if( config instanceof Function && !errorCallback ) {
+		if( __isFunction(config) && !errorCallback ) {
 			errorCallback = config;
 			config = null;
 		}
@@ -218,7 +230,7 @@ var __ddrSecure = (function(){
 			throw new TypeError( "config is not an object" );
 		}
 	
-		if( errorCallback && !(errorCallback instanceof Function) ) {
+		if( errorCallback && !__isFunction(errorCallback) ) {
 			throw new TypeError( "errorCallback is not a function" );
 		}
 	
@@ -264,7 +276,7 @@ var __ddrSecure = (function(){
 	exports.secureMethods = function(obj, config, errorCallback) {
 		
 		return __secure(obj, config, errorCallback, "writable", function(key){
-				return obj[key] instanceof Function;
+				return __isFunction(obj[key]);
 			});
 		
 	};
@@ -304,7 +316,9 @@ var __ddrSecure = (function(){
  * @param callback {function} callback function
  * @example require("ddr-secure").on("eval", function(caller){ console.log("Eval executed in function: "+caller); });
  */
-exports.on = __ddrSecure.on.bind(__ddrSecure);
+["on", "once", "removeListener"].forEach(function(mth){
+	exports[mth] = __ddrSecure[mth].bind(__ddrSecure);
+});
 
 
 
