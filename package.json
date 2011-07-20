@@ -1,10 +1,10 @@
 {
     "name":         "node-secure",
+    "version":      "0.2.0",
     "description":  "Protects globals from being overridden and adds functionality to protect your modules from hacking and code injection",
     "keywords":     ["security", "globals", "eval", "node.js"],
-    "version":      "0.1",
     "author":       "David de Rosier <ddrcode@gmail.com>",
-    "main":         "./js/node-secure.js",
+    "main":         "js/node-secure.js",
     "engines":      { "node": ">= 0.4.0" },
     "repository":   { "type":"git", "url":"https://github.com/ddrcode/node-secure" }
 }

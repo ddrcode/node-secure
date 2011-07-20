@@ -101,7 +101,14 @@ you can add an extra protection by hiding the private elements from being enumer
 you even load the node-secure module. In such case the module won't be able to secure
 the application. However you can control this situation by calling `isSecure` method or by checking 
 `status` object. The status can tell you exactly which element couldn't be secured. Moreover
-every time when protection of global elements fails, the module will produce an _insecure_ event.   
+every time when protection of global elements fails, the module will produce an _insecure_ event.  
+
+
+#### Installation
+
+```
+npm install node-secure
+``` 
 
 
 #### Examples
