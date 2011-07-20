@@ -6,7 +6,8 @@ node-secure
 `Infinity`, `eval`, `isNaN`)  from being overridden and adds functionality to protect your
 modules from hacking and code injection<br/>
 Author: **David de Rosier**<br/>
-License: **public domain**
+License: **public domain**<br/>
+Installation: **```npm install node-secure```**
 
 ### Server-side must be secured!
 
