@@ -7,7 +7,7 @@ node-secure
 modules from hacking and code injection<br/>
 Author: **David de Rosier**<br/>
 License: **public domain**<br/>
-Installation: **```npm install node-secure```**
+Installation: **npm install node-secure**
 
 ### Server-side must be secured!
 
