@@ -47,23 +47,48 @@
  *    execute it, you will get an event notification
  *    Example: 
  *       var secure = require("node-secure");
- *       secure.on("eval", function(code){"Evaluation executed: "+code});
- *       eval("6*7); // will emit the "eval" event before code execution
+ *       secure.on("eval", function(f){"Evaluation executed in function "+f.name});
+ *       eval("6*7"); // will emit the "eval" event before code execution
  *       
- * 3. Protect your object method for being overridden. Iti is especially 
+ * 3. Protect your object method for being overridden. It is especially 
  *    important in case of custom modules.
  *    Example:
  *       var secure = require("node-secure");
  *       secure.secureMethods(exports); // protects all methods from current module
+ *       secure.securePrivates(myObj); // makes all properties starting from "_" non-enumerable
+ *       
+ * 4. Protect standard JavaScript methods from being overridden.  
+ *    Example:
+ *       var secure = require("node-secure");
+ *       secure.secureStandardMethods();
+ * 
+ * ------------------------------------------------------------------------------
+ * 
+ * API
+ * 		SecurityError(msg, problems)			: constructor
+ * 		secureStandardMethods(problemHandler)	: function
+ * 		secureMethods(obj, config, callback)	: function
+ * 		securePrivates(obj, config, callback)	: function
+ * 		on(callback)							: function
+ * 		once(callback)							: function
+ * 		removeListener(callback)				: function
+ * 		isSecure()								: function
+ * 		status									: object
+ * 		eval									: event
+ * 		insecure								: event
  * 
  * ------------------------------------------------------------------------------
  * 
  * Public domain
- * @author David de Rosier
+ * @author   David de Rosier
+ * @version  0.3.0alpha
+ * 
+ * This version is under development.
+ * Latest stable version is 0.2.0 
+ * Use GIT tags for it or npm: npm install node-secure 
  * 
  * You use this software at your own risk.
  */
-
 
 
 // required modules 
@@ -72,13 +97,15 @@ var EventEmitter = require("events").EventEmitter,
 	;
 
 
+var nodeSecure = exports;
 
 
 /**
  * Specifies which feature become protected after module load
  * Values available through 'status' property of the module
- * @example require('node-secure').status.NAN_VALUE
+ * @exports __status as status
  * @private
+ * @example require('node-secure').status.NAN_VALUE
  */
 var __status = {
 		EVAL: 					false,
@@ -151,7 +178,7 @@ var __status = {
  * Local instance of EventEmitter
  * @private
  */
-var __ddrSecure = (function(){
+var __eventEmitter = (function(){
 	
 	var Constr = function(){
 		EventEmitter.call(this);
@@ -160,6 +187,27 @@ var __ddrSecure = (function(){
 	util.inherits(Constr, EventEmitter);
 	
 	return new Constr();
+})(); 
+
+
+
+/**
+ * Error object constructor dedicated to security issues.
+ * @constructor
+ * @augments Error
+ * @param {string} msg error message
+ * @param {Array} [problems] an array of problems
+ */
+exports.SecurityError = SecurityError = (function(){
+	var SecurityError = function(msg, problems) {
+		Error.call(this, msg);
+		this.message = msg;
+		this.problems = problems;
+	};
+	SecurityError.prototype = Object.create( Error.prototype );
+	SecurityError.prototype.name = "SecurityError";
+	SecurityError.prototype.constructor = SecurityError;
+	return SecurityError;
 })(); 
 
 
@@ -196,14 +244,145 @@ var __isFunction = function(test){
 		
 		Object.defineProperty(global, "eval", { 
 			get: function(){
-					(__canEmit = !__canEmit) &&  __ddrSecure.emit("eval", arguments.callee.caller);
+					(__canEmit = !__canEmit) &&  __eventEmitter.emit("eval", arguments.callee.caller);
 					return __eval;
 				}, 
-			configurable: false });
+			configurable: false 
+		});
 		
 		__status.EVAL = true;
 	} 
 })();
+
+
+
+/**
+ * Protects methods of standard JavaScript objects from being overridden. 
+ * The optional parameter of the method defines how to handle situations when
+ * function recognize some issues (ie. already overridden method). Three options
+ * available here:
+ * a) function run without input attribute - "insecure" event will be emitted
+ * b) function run with boolean atribute true - SecurityError will be thrown.
+ * c) function run with function as an attribute - the callback will be invoked.
+ * In all three cases an array of problems will be passed as an attribute.
+ * 
+ * Function returns the module object which means it can be invoked directly
+ * after require, without overlapping the module context (see example). 
+ *  
+ * @param {boolean|function} [problemHandler] 
+ * @returns module object
+ * @throws {SecurityError} when problems found and function invoked with 
+ * 		   boolean argument set to true
+ * @example
+ * 			var secure = require("node-secure").secureStandardMethods(
+ * 				function(problems){
+ * 					console.log("Can't continue due to security threats");
+ * 					console.log(problems);
+ *					process.exit(1); 			   
+ * 				});
+ */
+exports.secureStandardMethods = (function(prototypes, objects){
+	
+		var __problems = (function(){
+				var arr = [];
+				arr.add = function(key, desc){
+					arr.push( "Problem in "+key+". "+desc );
+				};
+				return arr;
+			})();
+	
+		var __iterator = function(elems){
+			var proto = elems===prototypes;
+			Object.keys(elems).forEach(function(p){
+
+				proto && elems[p].push('constructor');
+				
+				elems[p].forEach(function(f){
+					try {
+						var obj = proto ? global[p].prototype : global[p],
+							dsc = Object.getOwnPropertyDescriptor(obj, f),
+							key = (proto ? p+".prototype" : p) + "." + f,
+							problem = true, error = false;
+						
+						if( !dsc ) {
+							__problems.add( key, "Method does not exist" );
+						} else if( !dsc.writable || !dsc.configurable ) {
+							__problems.add( key, "Method already protected" );
+						} else if( !__isFunction(obj[f]) ) {
+							__problems.add( key, "Method is not a function" );
+						} else {
+							problem = false;
+							Object.defineProperty(obj, f, {writable: false, configurable: false});
+						}
+						
+					} catch(ex) {
+						error = true;
+					} finally {
+						if( !problem && !error ) {
+							dsc = Object.getOwnPropertyDescriptor(obj, f);
+						}
+						if( !problem && (error || dsc.writable || dsc.configurable) ){
+							__problems.add( key, "Method couldn't be protected for unknown reason" );
+						}
+					}
+				});
+			});
+		};
+		
+		return function(problemHandler){
+			
+				if( arguments.length > 0 && typeof problemHandler !== "boolean" && !__isFunction(problemHandler) ) {
+					throw new TypeError( "problemHandler must be either boolean or a function" );
+				}
+			
+				__iterator(prototypes);
+				__iterator(objects);
+				
+				if( __problems.length > 0 ) {
+					var problems = Object.freeze( __problems.slice() );
+					if( typeof problemHandler === "boolean" ) {
+						throw new SecurityError( "Securing standard ECMAScript methods failed. See problems property for details.", problems );
+					} else if( __isFunction(problemHandler) ) {
+						problemHandler( problems ); 
+					} else {
+						__eventEmitter.emit( "insecure", problems );
+					}
+				}
+				
+				// override itself after first execution
+				nodeSecure.secureStandardMethods = function(){};
+				
+				return nodeSecure;
+			};
+		
+	})({
+			'Object': ['toString', 'toLocaleString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable'],
+			'Array': ['toString','toLocaleString','concat','join','pop','push','reverse','shift','slice','sort','splice','unshift',
+			          'indexOf','lastIndexOf','every','some','forEach','filter','map','reduce','reduceRight'],
+			'Function': ['call','apply','bind','toString'],
+			'Number': ['toString','toLocaleString','valueOf','toFixed','toExponential','toPrecision'],
+			'Boolean': ['toString','valueOf'],
+			'String': ['trim','toString','valueOf','charAt','charCodeAt','concat','indexOf','lastIndexOf',/*'localCompare',*/
+			           'match','replace','search','slice','split','substring','toLowerCase','toLocaleLowerCase','toUpperCase','toLocaleUpperCase'],
+			'Date': ['toUTCString', 'setMinutes', 'setUTCMonth', 'getMilliseconds', 'getTime', 'getMinutes', 'getUTCHours', 
+         	        'toString', 'setUTCFullYear', 'setMonth', 'getUTCMinutes', 'getUTCDate', 'setSeconds', 'toLocaleDateString', 'getMonth', 
+        	        'toTimeString', 'toLocaleTimeString', 'setUTCMilliseconds', 'setYear', 'getUTCFullYear', 'getFullYear', 'getTimezoneOffset', 
+        	        'setDate', 'getUTCMonth', 'getHours', 'toLocaleString', 'toISOString', 'toDateString', 'getUTCSeconds', 'valueOf', 
+        	        'setUTCMinutes', 'getUTCDay', 'toJSON', 'setUTCDate', 'setUTCSeconds', 'getYear', 'getUTCMilliseconds', 'getDay', 
+        	        'setFullYear', 'setMilliseconds', 'setTime', 'setHours', 'getSeconds', 'toGMTString', 'getDate', 'setUTCHours'],
+			'RegExp': ['toString', 'exec', 'compile', 'test'],
+			'Error': ['toString']
+		},{
+			'JSON': ['parse', 'stringify'],
+			'Object': ['keys','getPrototypeOf','create','preventExtensions','seal','freeze','isSealed','isFrozen',
+			           'isExtensible', 'defineProperty', 'defineProperties', 'getOwnPropertyDescriptor', 'getOwnPropertyNames'],
+			'Array': ['isArray'],
+			'String': ['fromCharCode'],
+			'Date': ['now','UTC','parse'],
+			'Math': ['abs','acos','asin','atan','atan2','ceil',
+			         'cos','exp','floor','log','max','min','pow','random','round','sin','sqrt','tan']
+		}
+	); // end of exports.secureStandardMethods factory
 
 
 
@@ -317,7 +496,7 @@ var __isFunction = function(test){
  * @example require("ddr-secure").on("eval", function(caller){ console.log("Eval executed in function: "+caller); });
  */
 ["on", "once", "removeListener"].forEach(function(mth){
-	exports[mth] = __ddrSecure[mth].bind(__ddrSecure);
+	exports[mth] = __eventEmitter[mth].bind(__eventEmitter);
 });
 
 
@@ -349,7 +528,7 @@ exports.secureMethods( exports, { enumerable: true, configurable: false } );
 // as the nearest callback execution. If direct test is required
 // call manually isSecure() method directly after module load
 !exports.isSecure() && process.nextTick(function(){
-	var failures = Object.keys(__status).filter( function(s){ return !__status[s]; });
-	__ddrSecure.emit("insecure", failures);
-}); 
+		var failures = Object.keys(__status).filter( function(s){ return !__status[s]; });
+		__eventEmitter.emit("insecure", failures);
+	}); 
 

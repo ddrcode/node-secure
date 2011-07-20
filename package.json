@@ -1,6 +1,6 @@
 {
     "name":         "node-secure",
-    "version":      "0.2.0",
+    "version":      "0.3.0alpha",
     "description":  "Protects globals from being overridden and adds functionality to protect your modules from hacking and code injection",
     "keywords":     ["security", "globals", "eval", "node.js"],
     "author":       "David de Rosier <ddrcode@gmail.com>",
