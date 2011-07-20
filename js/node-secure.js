@@ -262,12 +262,20 @@ var __isFunction = function(test){
  * function recognize some issues (ie. already overridden method). Three options
  * available here:
  * a) function run without input attribute - "insecure" event will be emitted
- * b) function run with boolean atribute true - SecurityError will be thrown.
+ * b) function run with boolean attribute true - SecurityError will be thrown.
  * c) function run with function as an attribute - the callback will be invoked.
  * In all three cases an array of problems will be passed as an attribute.
  * 
  * Function returns the module object which means it can be invoked directly
- * after require, without overlapping the module context (see example). 
+ * after require, without overlapping the module context (see example).
+ * 
+ * Function does not break when internal error happen. It tries to protect as 
+ * many standard methods as possible. Finally it produces the list of problems.  
+ * 
+ * Function executes only once. After that it replaces itself with an empty
+ * function to avoid situation with multiple attempts of standard object
+ * protection. It also means that after first execution the function releases
+ * its resources. 
  *  
  * @param {boolean|function} [problemHandler] 
  * @returns module object
@@ -329,7 +337,7 @@ exports.secureStandardMethods = (function(prototypes, objects){
 			});
 		};
 		
-		return function(problemHandler){
+		var __secureStandardMethods = function(problemHandler){
 			
 				if( arguments.length > 0 && typeof problemHandler !== "boolean" && !__isFunction(problemHandler) ) {
 					throw new TypeError( "problemHandler must be either boolean or a function" );
@@ -350,9 +358,15 @@ exports.secureStandardMethods = (function(prototypes, objects){
 				}
 				
 				// override itself after first execution
-				nodeSecure.secureStandardMethods = function(){};
+				__secureStandardMethods = function(){
+					return nodeSecure;
+				};
 				
 				return nodeSecure;
+			};
+			
+		return function(){
+				return __secureStandardMethods.apply(nodeSecure, arguments);
 			};
 		
 	})({

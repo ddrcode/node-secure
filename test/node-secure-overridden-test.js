@@ -36,8 +36,30 @@ var tests = {
 	
 	"node-secure module load": function(){
 		secure = test.standardTests.moduleLoad();
-	}
+	},
 
+	"secureStandardMethods": function(){
+		
+		Array.prototype.reduceRight = 666;
+		Object.defineProperty(Object.prototype, "toString", {configurable: false});
+		
+		var callback = function(problems){
+			assert.ok( true, "callback method should be executed due to some problems" );
+			assert.equal(problems.length, 2, "Function should identify two issues");
+		};
+		
+		secure.secureStandardMethods(callback);
+		
+		// problems shouldn't stop proetecting other methods
+		var dsc = Object.getOwnPropertyDescriptor(Object.prototype, "valueOf");
+		assert.equal( dsc.writable, false );
+		assert.equal( dsc.configurable, false );
+		
+		// tests if the function overrode itself. Second execution should throw error, because
+		// all standard methods are already protected
+		secure.secureStandardMethods(callback);
+	}
+	
 };
 
 

@@ -77,6 +77,23 @@ var tests = {
 			mth: function(){}
 		};
 		secure.secureMethods(obj, {}, callback);
+	},
+	
+	
+	"secureStandardMethods": function(){
+		var callback = function(){
+			assert.ok( false, "callback method should not be executed" );
+		};
+		
+		secure.secureStandardMethods(callback);
+		
+		var dsc = Object.getOwnPropertyDescriptor(Object.prototype, "toString");
+		assert.equal( dsc.writable, false );
+		assert.equal( dsc.configurable, false );
+		
+		// tests if the function overrode itself. Second execution should throw error, because
+		// all standard methods are already protected
+		secure.secureStandardMethods(callback);
 	}
 		
 };
