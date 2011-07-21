@@ -144,6 +144,18 @@ var __status = {
 
 
 /**
+ * Tests whether the input parameter is a function. Additional test is required because
+ * V8 returns "function" as a result of typeof operator also for RegExps.
+ * @returns {boolean}
+ * @private
+ */
+var __isFunction = function(test){
+	return typeof test === "function" && test.call && test.apply && test.bind;
+};
+
+
+
+/**
  * The code snippet below protects JavaScript globals from being overridden. 
  * It also reverts original values if they already got changed. 
  * To start the protection just load the module to a project. 
@@ -171,6 +183,8 @@ var __status = {
 	Object.keys(values).forEach(function(e){
 		try {
 			Object.defineProperty(global,e,{ writable: false, enumerable: false, configurable: false, value: values[e] });
+		} catch(ex) {
+			// nothing to do
 		} finally {
 			var dsc = Object.getOwnPropertyDescriptor(global, e);
 			__status[e.toUpperCase()+"_PROTECTION"] = !dsc.writable && !dsc.configurable;
@@ -179,17 +193,22 @@ var __status = {
 	});
 
 	// restore isNaN function if overridden
+	var __isNaN = null;
 	try {
-		if( !global.isNaN || !global.isNaN(values.NaN) ) {
-			global.isNaN = function(n) {
+		if( !__isFunction(global.isNaN) || global.isNaN(values.NaN) !== true || global.isNaN(5) !== false ) {
+			__isNaN = global.isNaN = function(n) {
 				return String(+n) === "NaN";
 			};
 		}
 		Object.defineProperty(global, "isNaN", { writable: false, enumerable: false, configurable: false });
+	} catch(ez) {
+		// nothing to do
 	} finally {
 		dsc = Object.getOwnPropertyDescriptor(global, "isNaN");
 		__status.ISNAN_PROTECTION = !dsc.writable && !dsc.configurable;
-		__status.ISNAN_VALUE = typeof global.isNaN === "function" && global.isNaN(NaN);
+		__status.ISNAN_VALUE = __isNaN 
+				? global.isNaN === __isNaN 
+				: __isFunction(global.isNaN) || global.isNaN(values.NaN) === true || global.isNaN(5) === false;
 	}
 	
 })();
@@ -232,18 +251,6 @@ exports.SecurityError = SecurityError = (function(){
 	SecurityError.prototype.constructor = SecurityError;
 	return SecurityError;
 })(); 
-
-
-
-/**
- * Tests whether the input parameter is a function. Additional test is required because
- * V8 returns "function" as a result of typeof operator also for RegExps.
- * @returns {boolean}
- * @private
- */
-var __isFunction = function(test){
-	return typeof test === "function" && test.call && test.apply && test.bind;
-};
 
 
 
@@ -596,7 +603,6 @@ exports.isSecure = function(){
 
 // Protects the module itself
 exports.secureMethods( exports, { enumerable: true, configurable: false } );
-
 
 
 // notifies that some of globals are not secure. Event notification happen
