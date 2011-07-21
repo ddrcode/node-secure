@@ -1,0 +1,617 @@
+<html><head><meta http-equiv="content-type" content="text/html; charset=utf-8"> <style>
+	.KEYW {color: #933;}
+	.COMM {color: #bbb; font-style: italic;}
+	.NUMB {color: #393;}
+	.STRN {color: #393;}
+	.REGX {color: #339;}
+	.line {border-right: 1px dotted #666; color: #666; font-style: normal;}
+	</style></head><body><pre><span class='line'>  1</span> <span class="COMM">/**
+<span class='line'>  2</span>  * @fileOverview 
+<span class='line'>  3</span>  * &lt;p>
+<span class='line'>  4</span>  * This simple module allows to protect the code using ECMAScript 5 features,
+<span class='line'>  5</span>  * even when strict mode is not available.
+<span class='line'>  6</span>  * &lt;/p>&lt;p>
+<span class='line'>  7</span>  * First it makes all global constants (undefined, NaN, Infinity) non-writable.
+<span class='line'>  8</span>  * and non-configurable. 
+<span class='line'>  9</span>  * How important it is you can check by running basic example:
+<span class='line'> 10</span>  * - override undefined with real value
+<span class='line'> 11</span>  * - run http server and make request
+<span class='line'> 12</span>  * Due to unprotected comparisons to undefined value in http module, the entire 
+<span class='line'> 13</span>  * server will fail with TypeError (tested on node.js 0.4.8)
+<span class='line'> 14</span>  * Such basic code can be intentionally injected to a server by a hacker
+<span class='line'> 15</span>  * or created by mistake by unexperienced developer. 
+<span class='line'> 16</span>  * &lt;/p>&lt;p>
+<span class='line'> 17</span>  * Secondly - the module allows you to protect your own code from
+<span class='line'> 18</span>  * intentional/unintentional overriding. The main element which you should
+<span class='line'> 19</span>  * protect are your methods. In most of the cases your code won't work properly
+<span class='line'> 20</span>  * if your methods will be overridden. 
+<span class='line'> 21</span>  * Other important thing is to hide private-like members from being enumerable.
+<span class='line'> 22</span>  * Especially when they are not physically private (i.e by usage of closures), 
+<span class='line'> 23</span>  * but marked as private with naming convention (using single or double 
+<span class='line'> 24</span>  * underscore prefix). 
+<span class='line'> 25</span>  * &lt;/p>&lt;p>
+<span class='line'> 26</span>  * Third thing is to control execution of eval function - which brings the bigger
+<span class='line'> 27</span>  * risk of potential attacks (execution of injected code fragments). Theoretically
+<span class='line'> 28</span>  * there is possible to override eval (i.e. with empty function), however it can
+<span class='line'> 29</span>  * break other modules which operate on eval function. This module extends eval
+<span class='line'> 30</span>  * with notification mechanism - every time when someone execute eval your program
+<span class='line'> 31</span>  * will be notified about it with "eval" event. The event takes reference to 
+<span class='line'> 32</span>  * executor function.
+<span class='line'> 33</span>  * &lt;/p>&lt;p>
+<span class='line'> 34</span>  * The dynamic nature of JavaScript gives to developer a freedom of quick
+<span class='line'> 35</span>  * and smart programming. However server-side code should be protected as much
+<span class='line'> 36</span>  * as possible from code injections and hacking. The visibility of code and 
+<span class='line'> 37</span>  * easy code inspection mechanism often can leave open doors for bad
+<span class='line'> 38</span>  * intensions and code replacements. 
+<span class='line'> 39</span>  * &lt;/p>
+<span class='line'> 40</span>  * 
+<span class='line'> 41</span>  * 
+<span class='line'> 42</span>  * &lt;pre>
+<span class='line'> 43</span>  * USAGE
+<span class='line'> 44</span>  * 
+<span class='line'> 45</span>  * 1. Just load the module to protect global statics (undefined, NaN, Infinity)
+<span class='line'> 46</span>  *    example: require('node-secure');
+<span class='line'> 47</span>  *    
+<span class='line'> 48</span>  * 2. Just load the module to control execution of eval (evil?) function.
+<span class='line'> 49</span>  *    With this module eval will work as previously, but every time someone
+<span class='line'> 50</span>  *    execute it, you will get an event notification
+<span class='line'> 51</span>  *    Example: 
+<span class='line'> 52</span>  *       var secure = require("node-secure");
+<span class='line'> 53</span>  *       secure.on("eval", function(f){"Evaluation executed in function "+f.name});
+<span class='line'> 54</span>  *       eval("6*7"); // will emit the "eval" event before code execution
+<span class='line'> 55</span>  *       
+<span class='line'> 56</span>  * 3. Protect your object method for being overridden. It is especially 
+<span class='line'> 57</span>  *    important in case of custom modules.
+<span class='line'> 58</span>  *    Example:
+<span class='line'> 59</span>  *       var secure = require("node-secure");
+<span class='line'> 60</span>  *       secure.secureMethods(exports); // protects all methods from current module
+<span class='line'> 61</span>  *       secure.securePrivates(myObj); // makes all properties starting from "_" non-enumerable
+<span class='line'> 62</span>  *       
+<span class='line'> 63</span>  * 4. Protect standard JavaScript methods from being overridden.  
+<span class='line'> 64</span>  *    Example:
+<span class='line'> 65</span>  *       var secure = require("node-secure");
+<span class='line'> 66</span>  *       secure.secureStandardMethods();
+<span class='line'> 67</span>  * &lt;/pre>
+<span class='line'> 68</span>  * 
+<span class='line'> 69</span>  * 
+<span class='line'> 70</span>  * 
+<span class='line'> 71</span>  * &lt;pre>
+<span class='line'> 72</span>  * 
+<span class='line'> 73</span>  * API
+<span class='line'> 74</span>  *      SecurityError(msg, problems)            : constructor
+<span class='line'> 75</span>  *      secureStandardMethods(problemHandler)   : function
+<span class='line'> 76</span>  *      secureMethods(obj, config, callback)    : function
+<span class='line'> 77</span>  *      securePrivates(obj, config, callback)   : function
+<span class='line'> 78</span>  *      on(callback)                            : function
+<span class='line'> 79</span>  *      once(callback)                          : function
+<span class='line'> 80</span>  *      removeListener(callback)                : function
+<span class='line'> 81</span>  *      isSecure()                              : function
+<span class='line'> 82</span>  *      status                                  : object
+<span class='line'> 83</span>  *      eval                                    : event
+<span class='line'> 84</span>  *      insecure                                : event
+<span class='line'> 85</span>  *      
+<span class='line'> 86</span>  * &lt;/pre>
+<span class='line'> 87</span>  *
+<span class='line'> 88</span>  * 
+<span class='line'> 89</span>  * &lt;p>
+<span class='line'> 90</span>  * This version is under development.&lt;br/>
+<span class='line'> 91</span>  * Latest stable version is 0.2.0 &lt;br/>
+<span class='line'> 92</span>  * Use GIT tags for it or npm: npm install node-secure &lt;br/> 
+<span class='line'> 93</span>  * 
+<span class='line'> 94</span>  * Public domain &lt;br/>
+<span class='line'> 95</span>  * You use this software at your own risk.
+<span class='line'> 96</span>  * &lt;/p>
+<span class='line'> 97</span>  * 
+<span class='line'> 98</span>  * @author   David de Rosier
+<span class='line'> 99</span>  * @version  0.3.0alpha
+<span class='line'>100</span>  * @source   https://github.com/ddrcode/node-secure
+<span class='line'>101</span>  * 
+<span class='line'>102</span>  */</span><span class="WHIT">
+<span class='line'>103</span> 
+<span class='line'>104</span> 
+<span class='line'>105</span> </span><span class="COMM">// required modules </span><span class="WHIT">
+<span class='line'>106</span> </span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">EventEmitter</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">require</span><span class="PUNC">(</span><span class="STRN">"events"</span><span class="PUNC">)</span><span class="PUNC">.</span><span class="NAME">EventEmitter</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>107</span> </span><span class="WHIT">	</span><span class="NAME">util</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">require</span><span class="PUNC">(</span><span class="STRN">"util"</span><span class="PUNC">)</span><span class="WHIT">
+<span class='line'>108</span> </span><span class="WHIT">	</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>109</span> 
+<span class='line'>110</span> 
+<span class='line'>111</span> </span><span class="COMM">/**
+<span class='line'>112</span>  * This namespace contains all elements provided through exports
+<span class='line'>113</span>  * variable. Namespace name need to be defined by developer as a 
+<span class='line'>114</span>  * result of require function. By convention is suggested to use
+<span class='line'>115</span>  * the name 'secure'.&lt;br/>
+<span class='line'>116</span>  * See &lt;a href="../files.html">the file description&lt;/a>
+<span class='line'>117</span>  * @example var secure = require('node-secure');
+<span class='line'>118</span>  * @name secure 
+<span class='line'>119</span>  * @namespace Namespace containing all elements of the module
+<span class='line'>120</span>  */</span><span class="WHIT">
+<span class='line'>121</span> </span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">nodeSecure</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">exports</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>122</span> 
+<span class='line'>123</span> 
+<span class='line'>124</span> 
+<span class='line'>125</span> </span><span class="COMM">/**
+<span class='line'>126</span>  * Specifies which feature become protected after module load
+<span class='line'>127</span>  * Values available through 'status' property of the module
+<span class='line'>128</span>  * @exports __status as status
+<span class='line'>129</span>  * @private
+<span class='line'>130</span>  * @example require('node-secure').status.NAN_VALUE
+<span class='line'>131</span>  */</span><span class="WHIT">
+<span class='line'>132</span> </span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">__status</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>133</span> </span><span class="WHIT">		</span><span class="NAME">EVAL</span><span class="PUNC">:</span><span class="WHIT"> 					</span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>134</span> </span><span class="WHIT">		</span><span class="NAME">UNDEFINED_VALUE</span><span class="PUNC">:</span><span class="WHIT"> 		</span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>135</span> </span><span class="WHIT">		</span><span class="NAME">UNDEFINED_PROTECTION</span><span class="PUNC">:</span><span class="WHIT"> 	</span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>136</span> </span><span class="WHIT">		</span><span class="NAME">NAN_VALUE</span><span class="PUNC">:</span><span class="WHIT"> 				</span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>137</span> </span><span class="WHIT">		</span><span class="NAME">NAN_PROTECTION</span><span class="PUNC">:</span><span class="WHIT"> 		</span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>138</span> </span><span class="WHIT">		</span><span class="NAME">INFINITY_VALUE</span><span class="PUNC">:</span><span class="WHIT"> 		</span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>139</span> </span><span class="WHIT">		</span><span class="NAME">INFINITY_PROTECTION</span><span class="PUNC">:</span><span class="WHIT"> 	</span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>140</span> </span><span class="WHIT">		</span><span class="NAME">ISNAN_VALUE</span><span class="PUNC">:</span><span class="WHIT"> 			</span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>141</span> </span><span class="WHIT">		</span><span class="NAME">ISNAN_PROTECTION</span><span class="PUNC">:</span><span class="WHIT"> 		</span><span class="KEYW">false</span><span class="WHIT">
+<span class='line'>142</span> </span><span class="WHIT">	</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>143</span> 
+<span class='line'>144</span> 
+<span class='line'>145</span> 
+<span class='line'>146</span> </span><span class="COMM">/**
+<span class='line'>147</span>  * The code snippet below protects JavaScript globals from being overridden. 
+<span class='line'>148</span>  * It also reverts original values if they already got changed. 
+<span class='line'>149</span>  * To start the protection just load the module to a project. 
+<span class='line'>150</span>  * @example require('node-secure');
+<span class='line'>151</span>  */</span><span class="WHIT">
+<span class='line'>152</span> </span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>153</span> </span><span class="WHIT">	
+<span class='line'>154</span> 	</span><span class="COMM">// global object in non-strict mode </span><span class="WHIT">
+<span class='line'>155</span> </span><span class="WHIT">	</span><span class="COMM">// (to avoid potentially overridden global variable of node.js)</span><span class="WHIT">
+<span class='line'>156</span> </span><span class="WHIT">	</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">global</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT"> </span><span class="KEYW">return</span><span class="WHIT"> </span><span class="KEYW">this</span><span class="PUNC">;</span><span class="WHIT"> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>157</span> </span><span class="WHIT">	
+<span class='line'>158</span> 	</span><span class="COMM">// if strict mode is on - globals are protected by default</span><span class="WHIT">
+<span class='line'>159</span> </span><span class="WHIT">	</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">global</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>160</span> </span><span class="WHIT">		</span><span class="KEYW">return</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>161</span> </span><span class="WHIT">	</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>162</span> 
+<span class='line'>163</span> </span><span class="WHIT">	</span><span class="COMM">// proper values of globals</span><span class="WHIT">
+<span class='line'>164</span> </span><span class="WHIT">	</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">values</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>165</span> </span><span class="WHIT">			</span><span class="NAME">undefined</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">void</span><span class="WHIT"> </span><span class="NUMB">0</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>166</span> </span><span class="WHIT">			</span><span class="NAME">Infinity</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="NUMB">1</span><span class="PUNC">/</span><span class="NUMB">0</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>167</span> </span><span class="WHIT">			</span><span class="NAME">NaN</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">+</span><span class="STRN">"!"</span><span class="WHIT">
+<span class='line'>168</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>169</span> </span><span class="WHIT">	
+<span class='line'>170</span> 	</span><span class="COMM">// restore values and protect them</span><span class="WHIT">
+<span class='line'>171</span> </span><span class="WHIT">	</span><span class="NAME">Object.keys</span><span class="PUNC">(</span><span class="NAME">values</span><span class="PUNC">)</span><span class="PUNC">.</span><span class="NAME">forEach</span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">e</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>172</span> </span><span class="WHIT">		</span><span class="KEYW">try</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>173</span> </span><span class="WHIT">			</span><span class="NAME">Object.defineProperty</span><span class="PUNC">(</span><span class="NAME">global</span><span class="PUNC">,</span><span class="NAME">e</span><span class="PUNC">,</span><span class="PUNC">{</span><span class="WHIT"> </span><span class="NAME">writable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">enumerable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">configurable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">value</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="NAME">values</span><span class="PUNC">[</span><span class="NAME">e</span><span class="PUNC">]</span><span class="WHIT"> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>174</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">finally</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>175</span> </span><span class="WHIT">			</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">dsc</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">Object.getOwnPropertyDescriptor</span><span class="PUNC">(</span><span class="NAME">global</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">e</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>176</span> </span><span class="WHIT">			</span><span class="NAME">__status</span><span class="PUNC">[</span><span class="NAME">e.toUpperCase</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">+</span><span class="STRN">"_PROTECTION"</span><span class="PUNC">]</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">dsc.writable</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">dsc.configurable</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>177</span> </span><span class="WHIT">			</span><span class="NAME">__status</span><span class="PUNC">[</span><span class="NAME">e.toUpperCase</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">+</span><span class="STRN">"_VALUE"</span><span class="PUNC">]</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">e</span><span class="PUNC">!==</span><span class="STRN">"NaN"</span><span class="WHIT"> </span><span class="PUNC">?</span><span class="WHIT"> </span><span class="NAME">dsc.value</span><span class="PUNC">===</span><span class="NAME">values</span><span class="PUNC">[</span><span class="NAME">e</span><span class="PUNC">]</span><span class="WHIT"> </span><span class="PUNC">:</span><span class="WHIT"> </span><span class="NAME">String</span><span class="PUNC">(</span><span class="NAME">dsc.value</span><span class="PUNC">)</span><span class="PUNC">===</span><span class="STRN">"NaN"</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="KEYW">typeof</span><span class="WHIT"> </span><span class="NAME">dsc.value</span><span class="WHIT"> </span><span class="PUNC">===</span><span class="WHIT"> </span><span class="STRN">"number"</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>178</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>179</span> </span><span class="WHIT">	</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>180</span> 
+<span class='line'>181</span> </span><span class="WHIT">	</span><span class="COMM">// restore isNaN function if overridden</span><span class="WHIT">
+<span class='line'>182</span> </span><span class="WHIT">	</span><span class="KEYW">try</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>183</span> </span><span class="WHIT">		</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">global.isNaN</span><span class="WHIT"> </span><span class="PUNC">||</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">global.isNaN</span><span class="PUNC">(</span><span class="NAME">values.NaN</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>184</span> </span><span class="WHIT">			</span><span class="NAME">global.isNaN</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">n</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>185</span> </span><span class="WHIT">				</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">String</span><span class="PUNC">(</span><span class="PUNC">+</span><span class="NAME">n</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">===</span><span class="WHIT"> </span><span class="STRN">"NaN"</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>186</span> </span><span class="WHIT">			</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>187</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>188</span> </span><span class="WHIT">		</span><span class="NAME">Object.defineProperty</span><span class="PUNC">(</span><span class="NAME">global</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"isNaN"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT"> </span><span class="NAME">writable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">enumerable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">configurable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="WHIT"> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>189</span> </span><span class="WHIT">	</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">finally</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>190</span> </span><span class="WHIT">		</span><span class="NAME">dsc</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">Object.getOwnPropertyDescriptor</span><span class="PUNC">(</span><span class="NAME">global</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"isNaN"</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>191</span> </span><span class="WHIT">		</span><span class="NAME">__status.ISNAN_PROTECTION</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">dsc.writable</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">dsc.configurable</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>192</span> </span><span class="WHIT">		</span><span class="NAME">__status.ISNAN_VALUE</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">typeof</span><span class="WHIT"> </span><span class="NAME">global.isNaN</span><span class="WHIT"> </span><span class="PUNC">===</span><span class="WHIT"> </span><span class="STRN">"function"</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">global.isNaN</span><span class="PUNC">(</span><span class="NAME">NaN</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>193</span> </span><span class="WHIT">	</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>194</span> </span><span class="WHIT">	
+<span class='line'>195</span> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>196</span> 
+<span class='line'>197</span> 
+<span class='line'>198</span> 
+<span class='line'>199</span> </span><span class="COMM">/**
+<span class='line'>200</span>  * Local instance of EventEmitter
+<span class='line'>201</span>  * @private
+<span class='line'>202</span>  */</span><span class="WHIT">
+<span class='line'>203</span> </span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">__eventEmitter</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>204</span> </span><span class="WHIT">	
+<span class='line'>205</span> 	</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">Constr</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>206</span> </span><span class="WHIT">		</span><span class="NAME">EventEmitter.call</span><span class="PUNC">(</span><span class="KEYW">this</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>207</span> </span><span class="WHIT">	</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>208</span> </span><span class="WHIT">	
+<span class='line'>209</span> 	</span><span class="NAME">util.inherits</span><span class="PUNC">(</span><span class="NAME">Constr</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">EventEmitter</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>210</span> </span><span class="WHIT">	
+<span class='line'>211</span> 	</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="KEYW">new</span><span class="WHIT"> </span><span class="NAME">Constr</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>212</span> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT"> 
+<span class='line'>213</span> 
+<span class='line'>214</span> 
+<span class='line'>215</span> 
+<span class='line'>216</span> </span><span class="COMM">/**
+<span class='line'>217</span>  * Error object constructor dedicated to security issues.
+<span class='line'>218</span>  * @name secure.SecurityError
+<span class='line'>219</span>  * @constructor 
+<span class='line'>220</span>  * @extends Error
+<span class='line'>221</span>  * @param {string} msg error message
+<span class='line'>222</span>  * @param {Array} [problems] an array of problems
+<span class='line'>223</span>  */</span><span class="WHIT">
+<span class='line'>224</span> </span><span class="NAME">exports.SecurityError</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">SecurityError</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>225</span> </span><span class="WHIT">	</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">SecurityError</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">msg</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">problems</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>226</span> </span><span class="WHIT">		</span><span class="NAME">Error.call</span><span class="PUNC">(</span><span class="KEYW">this</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">msg</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>227</span> </span><span class="WHIT">		</span><span class="NAME">this.message</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">msg</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>228</span> </span><span class="WHIT">		</span><span class="NAME">this.problems</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">problems</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>229</span> </span><span class="WHIT">	</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>230</span> </span><span class="WHIT">	</span><span class="NAME">SecurityError.prototype</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">Object.create</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">Error.prototype</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>231</span> </span><span class="WHIT">	</span><span class="NAME">SecurityError.prototype.name</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="STRN">"SecurityError"</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>232</span> </span><span class="WHIT">	</span><span class="NAME">SecurityError.prototype.constructor</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">SecurityError</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>233</span> </span><span class="WHIT">	</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">SecurityError</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>234</span> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT"> 
+<span class='line'>235</span> 
+<span class='line'>236</span> 
+<span class='line'>237</span> 
+<span class='line'>238</span> </span><span class="COMM">/**
+<span class='line'>239</span>  * Tests whether the input parameter is a function. Additional test is required because
+<span class='line'>240</span>  * V8 returns "function" as a result of typeof operator also for RegExps.
+<span class='line'>241</span>  * @returns {boolean}
+<span class='line'>242</span>  * @private
+<span class='line'>243</span>  */</span><span class="WHIT">
+<span class='line'>244</span> </span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">__isFunction</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">test</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>245</span> </span><span class="WHIT">	</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="KEYW">typeof</span><span class="WHIT"> </span><span class="NAME">test</span><span class="WHIT"> </span><span class="PUNC">===</span><span class="WHIT"> </span><span class="STRN">"function"</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">test.call</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">test.apply</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">test.bind</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>246</span> </span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>247</span> 
+<span class='line'>248</span> 
+<span class='line'>249</span> 
+<span class='line'>250</span> </span><span class="COMM">/**
+<span class='line'>251</span>  * This code snippet overrides the original eval function for better control
+<span class='line'>252</span>  * of unexpected execution. Every time the eval function will be called
+<span class='line'>253</span>  * the application will emit "eval" event, passing the code for execution
+<span class='line'>254</span>  * as an argument.
+<span class='line'>255</span>  *   
+<span class='line'>256</span>  * @example
+<span class='line'>257</span>  *    var secure = require("node-secure");
+<span class='line'>258</span>  *    secure.on("eval", function(code){"Evaluation executed: "+code});
+<span class='line'>259</span>  *    eval("6*7); // will emit the "eval" event before code execution
+<span class='line'>260</span>  *    
+<span class='line'>261</span>  */</span><span class="WHIT">
+<span class='line'>262</span> </span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>263</span> </span><span class="WHIT">	</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">evalDsc</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">Object.getOwnPropertyDescriptor</span><span class="PUNC">(</span><span class="NAME">global</span><span class="PUNC">,</span><span class="STRN">"eval"</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>264</span> </span><span class="WHIT">	</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">evalDsc.configurable</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">evalDsc.writable</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>265</span> </span><span class="WHIT">		</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">__eval</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">global.eval</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>266</span> </span><span class="WHIT">			</span><span class="NAME">__canEmit</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>267</span> </span><span class="WHIT">		
+<span class='line'>268</span> 		</span><span class="NAME">Object.defineProperty</span><span class="PUNC">(</span><span class="NAME">global</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"eval"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT"> 
+<span class='line'>269</span> 			</span><span class="NAME">get</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>270</span> </span><span class="WHIT">					</span><span class="PUNC">(</span><span class="NAME">__canEmit</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">__canEmit</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT">  </span><span class="NAME">__eventEmitter.emit</span><span class="PUNC">(</span><span class="STRN">"eval"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">arguments.callee.caller</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>271</span> </span><span class="WHIT">					</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">__eval</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>272</span> </span><span class="WHIT">				</span><span class="PUNC">}</span><span class="PUNC">,</span><span class="WHIT"> 
+<span class='line'>273</span> 			</span><span class="NAME">configurable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="WHIT"> 
+<span class='line'>274</span> 		</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>275</span> </span><span class="WHIT">		
+<span class='line'>276</span> 		</span><span class="NAME">__status.EVAL</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">true</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>277</span> </span><span class="WHIT">	</span><span class="PUNC">}</span><span class="WHIT"> 
+<span class='line'>278</span> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>279</span> 
+<span class='line'>280</span> 
+<span class='line'>281</span> 
+<span class='line'>282</span> </span><span class="COMM">/**
+<span class='line'>283</span>  * &lt;p>
+<span class='line'>284</span>  * Protects methods of standard JavaScript objects from being overridden. 
+<span class='line'>285</span>  * The optional parameter of the method defines how to handle situations when
+<span class='line'>286</span>  * function recognize some issues (ie. already overridden method). Three options
+<span class='line'>287</span>  * available here:
+<span class='line'>288</span>  * a) function run without input attribute - "insecure" event will be emitted
+<span class='line'>289</span>  * b) function run with boolean attribute true - SecurityError will be thrown.
+<span class='line'>290</span>  * c) function run with function as an attribute - the callback will be invoked.
+<span class='line'>291</span>  * In all three cases an array of problems will be passed as an attribute.
+<span class='line'>292</span>  * &lt;/p>&lt;p>
+<span class='line'>293</span>  * Function returns the module object which means it can be invoked directly
+<span class='line'>294</span>  * after require, without overlapping the module context (see example).
+<span class='line'>295</span>  * &lt;/p>&lt;p>
+<span class='line'>296</span>  * Function does not break when internal error happen. It tries to protect as 
+<span class='line'>297</span>  * many standard methods as possible. Finally it produces the list of problems.  
+<span class='line'>298</span>  * &lt;/p>&lt;p>
+<span class='line'>299</span>  * Function executes only once. After that it replaces itself with an empty
+<span class='line'>300</span>  * function to avoid situation when multiple attempts of standard object
+<span class='line'>301</span>  * protection happen. It also means that after first execution the function 
+<span class='line'>302</span>  * releases its resources. 
+<span class='line'>303</span>  * &lt;/p> 
+<span class='line'>304</span>  * 
+<span class='line'>305</span>  * @name secure.secureStandardMethods
+<span class='line'>306</span>  * @function
+<span class='line'>307</span>  * @param {boolean|function} [problemHandler] boolean or a function
+<span class='line'>308</span>  * @returns module object
+<span class='line'>309</span>  * @throws {SecurityError} when problems found and function invoked with 
+<span class='line'>310</span>  * 		   boolean argument set to true
+<span class='line'>311</span>  * @example
+<span class='line'>312</span>  *   var secure = require("node-secure").secureStandardMethods(
+<span class='line'>313</span>  * 	      function(problems){
+<span class='line'>314</span>  *        console.log("Can't continue due to security threats");
+<span class='line'>315</span>  *        console.log(problems);
+<span class='line'>316</span>  *        process.exit(1); 			   
+<span class='line'>317</span>  *      });
+<span class='line'>318</span>  */</span><span class="WHIT">
+<span class='line'>319</span> </span><span class="NAME">exports.secureStandardMethods</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">prototypes</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">objects</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>320</span> </span><span class="WHIT">	
+<span class='line'>321</span> 
+<span class='line'>322</span> 		</span><span class="COMM">/**
+<span class='line'>323</span> 		 * Array of issues found during standard method protection.
+<span class='line'>324</span> 		 * The object is extended with one custom method: add. 
+<span class='line'>325</span> 		 * @private
+<span class='line'>326</span> 		 * @type {Array}
+<span class='line'>327</span> 		 */</span><span class="WHIT">
+<span class='line'>328</span> </span><span class="WHIT">		</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">__problems</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>329</span> </span><span class="WHIT">				</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">arr</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="PUNC">]</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>330</span> </span><span class="WHIT">				</span><span class="NAME">arr.add</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">key</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">desc</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>331</span> </span><span class="WHIT">					</span><span class="NAME">arr.push</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="STRN">"Problem in "</span><span class="PUNC">+</span><span class="NAME">key</span><span class="PUNC">+</span><span class="STRN">". "</span><span class="PUNC">+</span><span class="NAME">desc</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>332</span> </span><span class="WHIT">				</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>333</span> </span><span class="WHIT">				</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">arr</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>334</span> </span><span class="WHIT">			</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>335</span> </span><span class="WHIT">	
+<span class='line'>336</span> 		
+<span class='line'>337</span> 		</span><span class="COMM">/**
+<span class='line'>338</span> 		 * Function iterates through an map of object and method names
+<span class='line'>339</span> 		 * trying to change their property descriptors to
+<span class='line'>340</span> 		 * {writable: false, configurable: false}.  
+<span class='line'>341</span> 		 * @private
+<span class='line'>342</span> 		 * @param {Object} elems a map of object and method names
+<span class='line'>343</span> 		 */</span><span class="WHIT">
+<span class='line'>344</span> </span><span class="WHIT">		</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">__iterator</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">elems</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>345</span> </span><span class="WHIT">			</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">proto</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">elems</span><span class="PUNC">===</span><span class="NAME">prototypes</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>346</span> </span><span class="WHIT">			</span><span class="NAME">Object.keys</span><span class="PUNC">(</span><span class="NAME">elems</span><span class="PUNC">)</span><span class="PUNC">.</span><span class="NAME">forEach</span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">p</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>347</span> 
+<span class='line'>348</span> </span><span class="WHIT">				</span><span class="NAME">proto</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">elems</span><span class="PUNC">[</span><span class="NAME">p</span><span class="PUNC">]</span><span class="PUNC">.</span><span class="NAME">push</span><span class="PUNC">(</span><span class="STRN">'constructor'</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>349</span> </span><span class="WHIT">				
+<span class='line'>350</span> 				</span><span class="NAME">elems</span><span class="PUNC">[</span><span class="NAME">p</span><span class="PUNC">]</span><span class="PUNC">.</span><span class="NAME">forEach</span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">f</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>351</span> </span><span class="WHIT">					</span><span class="KEYW">try</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>352</span> </span><span class="WHIT">						</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">obj</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">proto</span><span class="WHIT"> </span><span class="PUNC">?</span><span class="WHIT"> </span><span class="NAME">global</span><span class="PUNC">[</span><span class="NAME">p</span><span class="PUNC">]</span><span class="PUNC">.</span><span class="NAME">prototype</span><span class="WHIT"> </span><span class="PUNC">:</span><span class="WHIT"> </span><span class="NAME">global</span><span class="PUNC">[</span><span class="NAME">p</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>353</span> </span><span class="WHIT">							</span><span class="NAME">dsc</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">Object.getOwnPropertyDescriptor</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">f</span><span class="PUNC">)</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>354</span> </span><span class="WHIT">							</span><span class="NAME">key</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">(</span><span class="NAME">proto</span><span class="WHIT"> </span><span class="PUNC">?</span><span class="WHIT"> </span><span class="NAME">p</span><span class="PUNC">+</span><span class="STRN">".prototype"</span><span class="WHIT"> </span><span class="PUNC">:</span><span class="WHIT"> </span><span class="NAME">p</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">+</span><span class="WHIT"> </span><span class="STRN">"."</span><span class="WHIT"> </span><span class="PUNC">+</span><span class="WHIT"> </span><span class="NAME">f</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>355</span> </span><span class="WHIT">							</span><span class="NAME">problem</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">true</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">error</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>356</span> </span><span class="WHIT">						
+<span class='line'>357</span> 						</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">dsc</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>358</span> </span><span class="WHIT">							</span><span class="NAME">__problems.add</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">key</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"Method does not exist"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>359</span> </span><span class="WHIT">						</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">else</span><span class="WHIT"> </span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">dsc.writable</span><span class="WHIT"> </span><span class="PUNC">||</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">dsc.configurable</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>360</span> </span><span class="WHIT">							</span><span class="NAME">__problems.add</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">key</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"Method already protected"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>361</span> </span><span class="WHIT">						</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">else</span><span class="WHIT"> </span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">__isFunction</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">[</span><span class="NAME">f</span><span class="PUNC">]</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>362</span> </span><span class="WHIT">							</span><span class="NAME">__problems.add</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">key</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"Method is not a function"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>363</span> </span><span class="WHIT">						</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">else</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>364</span> </span><span class="WHIT">							</span><span class="NAME">problem</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>365</span> </span><span class="WHIT">							</span><span class="NAME">Object.defineProperty</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">f</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="NAME">writable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">configurable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>366</span> </span><span class="WHIT">						</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>367</span> </span><span class="WHIT">						
+<span class='line'>368</span> 					</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">catch</span><span class="PUNC">(</span><span class="NAME">ex</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>369</span> </span><span class="WHIT">						</span><span class="NAME">error</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">true</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>370</span> </span><span class="WHIT">					</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">finally</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>371</span> </span><span class="WHIT">						</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">problem</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">error</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>372</span> </span><span class="WHIT">							</span><span class="NAME">dsc</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">Object.getOwnPropertyDescriptor</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">f</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>373</span> </span><span class="WHIT">						</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>374</span> </span><span class="WHIT">						</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">problem</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="PUNC">(</span><span class="NAME">error</span><span class="WHIT"> </span><span class="PUNC">||</span><span class="WHIT"> </span><span class="NAME">dsc.writable</span><span class="WHIT"> </span><span class="PUNC">||</span><span class="WHIT"> </span><span class="NAME">dsc.configurable</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>375</span> </span><span class="WHIT">							</span><span class="NAME">__problems.add</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">key</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"Method couldn't be protected for unknown reason"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>376</span> </span><span class="WHIT">						</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>377</span> </span><span class="WHIT">					</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>378</span> </span><span class="WHIT">				</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>379</span> </span><span class="WHIT">			</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>380</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>381</span> </span><span class="WHIT">		
+<span class='line'>382</span> 		
+<span class='line'>383</span> 		</span><span class="COMM">/**
+<span class='line'>384</span> 		 * Real implementation of secureStandardMethods function. 
+<span class='line'>385</span> 		 * Moved to internal/private function to let it to be internally
+<span class='line'>386</span> 		 * overridden. Public function won't be able to override itself 
+<span class='line'>387</span> 		 * because is protected.
+<span class='line'>388</span> 		 * @private
+<span class='line'>389</span> 		 */</span><span class="WHIT">
+<span class='line'>390</span> </span><span class="WHIT">		</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">__secureStandardMethods</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">problemHandler</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>391</span> </span><span class="WHIT">			
+<span class='line'>392</span> 				</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">arguments.length</span><span class="WHIT"> </span><span class="PUNC">></span><span class="WHIT"> </span><span class="NUMB">0</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="KEYW">typeof</span><span class="WHIT"> </span><span class="NAME">problemHandler</span><span class="WHIT"> </span><span class="PUNC">!==</span><span class="WHIT"> </span><span class="STRN">"boolean"</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">__isFunction</span><span class="PUNC">(</span><span class="NAME">problemHandler</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>393</span> </span><span class="WHIT">					</span><span class="KEYW">throw</span><span class="WHIT"> </span><span class="KEYW">new</span><span class="WHIT"> </span><span class="NAME">TypeError</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="STRN">"problemHandler must be either boolean or a function"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>394</span> </span><span class="WHIT">				</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>395</span> </span><span class="WHIT">			
+<span class='line'>396</span> 				</span><span class="NAME">__iterator</span><span class="PUNC">(</span><span class="NAME">prototypes</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>397</span> </span><span class="WHIT">				</span><span class="NAME">__iterator</span><span class="PUNC">(</span><span class="NAME">objects</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>398</span> </span><span class="WHIT">				
+<span class='line'>399</span> 				</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">__problems.length</span><span class="WHIT"> </span><span class="PUNC">></span><span class="WHIT"> </span><span class="NUMB">0</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>400</span> </span><span class="WHIT">					</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">problems</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">Object.freeze</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">__problems.slice</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>401</span> </span><span class="WHIT">					</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="KEYW">typeof</span><span class="WHIT"> </span><span class="NAME">problemHandler</span><span class="WHIT"> </span><span class="PUNC">===</span><span class="WHIT"> </span><span class="STRN">"boolean"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>402</span> </span><span class="WHIT">						</span><span class="KEYW">throw</span><span class="WHIT"> </span><span class="KEYW">new</span><span class="WHIT"> </span><span class="NAME">SecurityError</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="STRN">"Securing standard ECMAScript methods failed. See problems property for details."</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">problems</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>403</span> </span><span class="WHIT">					</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">else</span><span class="WHIT"> </span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">__isFunction</span><span class="PUNC">(</span><span class="NAME">problemHandler</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>404</span> </span><span class="WHIT">						</span><span class="NAME">problemHandler</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">problems</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT"> 
+<span class='line'>405</span> 					</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">else</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>406</span> </span><span class="WHIT">						</span><span class="NAME">__eventEmitter.emit</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="STRN">"insecure"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">problems</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>407</span> </span><span class="WHIT">					</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>408</span> </span><span class="WHIT">				</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>409</span> </span><span class="WHIT">				
+<span class='line'>410</span> 				</span><span class="COMM">// override itself after first execution</span><span class="WHIT">
+<span class='line'>411</span> </span><span class="WHIT">				</span><span class="NAME">__problems</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">prototypes</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">objects</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">__iterator</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">null</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>412</span> </span><span class="WHIT">				</span><span class="COMM">/** @ignore */</span><span class="WHIT"> </span><span class="NAME">__secureStandardMethods</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>413</span> </span><span class="WHIT">					</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">nodeSecure</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>414</span> </span><span class="WHIT">				</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>415</span> </span><span class="WHIT">				
+<span class='line'>416</span> 				</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">nodeSecure</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>417</span> </span><span class="WHIT">			</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>418</span> </span><span class="WHIT">			
+<span class='line'>419</span> 			
+<span class='line'>420</span> 		</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>421</span> </span><span class="WHIT">				</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">__secureStandardMethods.apply</span><span class="PUNC">(</span><span class="NAME">nodeSecure</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">arguments</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>422</span> </span><span class="WHIT">			</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>423</span> </span><span class="WHIT">		
+<span class='line'>424</span> 	</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">(</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>425</span> </span><span class="WHIT">			</span><span class="STRN">'Object'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'toString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'toLocaleString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'valueOf'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'hasOwnProperty'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'isPrototypeOf'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'propertyIsEnumerable'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>426</span> </span><span class="WHIT">			</span><span class="STRN">'Array'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'toString'</span><span class="PUNC">,</span><span class="STRN">'toLocaleString'</span><span class="PUNC">,</span><span class="STRN">'concat'</span><span class="PUNC">,</span><span class="STRN">'join'</span><span class="PUNC">,</span><span class="STRN">'pop'</span><span class="PUNC">,</span><span class="STRN">'push'</span><span class="PUNC">,</span><span class="STRN">'reverse'</span><span class="PUNC">,</span><span class="STRN">'shift'</span><span class="PUNC">,</span><span class="STRN">'slice'</span><span class="PUNC">,</span><span class="STRN">'sort'</span><span class="PUNC">,</span><span class="STRN">'splice'</span><span class="PUNC">,</span><span class="STRN">'unshift'</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>427</span> </span><span class="WHIT">			          </span><span class="STRN">'indexOf'</span><span class="PUNC">,</span><span class="STRN">'lastIndexOf'</span><span class="PUNC">,</span><span class="STRN">'every'</span><span class="PUNC">,</span><span class="STRN">'some'</span><span class="PUNC">,</span><span class="STRN">'forEach'</span><span class="PUNC">,</span><span class="STRN">'filter'</span><span class="PUNC">,</span><span class="STRN">'map'</span><span class="PUNC">,</span><span class="STRN">'reduce'</span><span class="PUNC">,</span><span class="STRN">'reduceRight'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>428</span> </span><span class="WHIT">			</span><span class="STRN">'Function'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'call'</span><span class="PUNC">,</span><span class="STRN">'apply'</span><span class="PUNC">,</span><span class="STRN">'bind'</span><span class="PUNC">,</span><span class="STRN">'toString'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>429</span> </span><span class="WHIT">			</span><span class="STRN">'Number'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'toString'</span><span class="PUNC">,</span><span class="STRN">'toLocaleString'</span><span class="PUNC">,</span><span class="STRN">'valueOf'</span><span class="PUNC">,</span><span class="STRN">'toFixed'</span><span class="PUNC">,</span><span class="STRN">'toExponential'</span><span class="PUNC">,</span><span class="STRN">'toPrecision'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>430</span> </span><span class="WHIT">			</span><span class="STRN">'Boolean'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'toString'</span><span class="PUNC">,</span><span class="STRN">'valueOf'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>431</span> </span><span class="WHIT">			</span><span class="STRN">'String'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'trim'</span><span class="PUNC">,</span><span class="STRN">'toString'</span><span class="PUNC">,</span><span class="STRN">'valueOf'</span><span class="PUNC">,</span><span class="STRN">'charAt'</span><span class="PUNC">,</span><span class="STRN">'charCodeAt'</span><span class="PUNC">,</span><span class="STRN">'concat'</span><span class="PUNC">,</span><span class="STRN">'indexOf'</span><span class="PUNC">,</span><span class="STRN">'lastIndexOf'</span><span class="PUNC">,</span><span class="COMM">/*'localCompare',*/</span><span class="WHIT">
+<span class='line'>432</span> </span><span class="WHIT">			           </span><span class="STRN">'match'</span><span class="PUNC">,</span><span class="STRN">'replace'</span><span class="PUNC">,</span><span class="STRN">'search'</span><span class="PUNC">,</span><span class="STRN">'slice'</span><span class="PUNC">,</span><span class="STRN">'split'</span><span class="PUNC">,</span><span class="STRN">'substring'</span><span class="PUNC">,</span><span class="STRN">'toLowerCase'</span><span class="PUNC">,</span><span class="STRN">'toLocaleLowerCase'</span><span class="PUNC">,</span><span class="STRN">'toUpperCase'</span><span class="PUNC">,</span><span class="STRN">'toLocaleUpperCase'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>433</span> </span><span class="WHIT">			</span><span class="STRN">'Date'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'toUTCString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setMinutes'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setUTCMonth'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getMilliseconds'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getTime'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getMinutes'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getUTCHours'</span><span class="PUNC">,</span><span class="WHIT"> 
+<span class='line'>434</span>          	        </span><span class="STRN">'toString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setUTCFullYear'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setMonth'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getUTCMinutes'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getUTCDate'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setSeconds'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'toLocaleDateString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getMonth'</span><span class="PUNC">,</span><span class="WHIT"> 
+<span class='line'>435</span>         	        </span><span class="STRN">'toTimeString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'toLocaleTimeString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setUTCMilliseconds'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setYear'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getUTCFullYear'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getFullYear'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getTimezoneOffset'</span><span class="PUNC">,</span><span class="WHIT"> 
+<span class='line'>436</span>         	        </span><span class="STRN">'setDate'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getUTCMonth'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getHours'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'toLocaleString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'toISOString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'toDateString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getUTCSeconds'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'valueOf'</span><span class="PUNC">,</span><span class="WHIT"> 
+<span class='line'>437</span>         	        </span><span class="STRN">'setUTCMinutes'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getUTCDay'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'toJSON'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setUTCDate'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setUTCSeconds'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getYear'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getUTCMilliseconds'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getDay'</span><span class="PUNC">,</span><span class="WHIT"> 
+<span class='line'>438</span>         	        </span><span class="STRN">'setFullYear'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setMilliseconds'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setTime'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setHours'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getSeconds'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'toGMTString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getDate'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'setUTCHours'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>439</span> </span><span class="WHIT">			</span><span class="STRN">'RegExp'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'toString'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'exec'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'compile'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'test'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>440</span> </span><span class="WHIT">			</span><span class="STRN">'Error'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'toString'</span><span class="PUNC">]</span><span class="WHIT">
+<span class='line'>441</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="PUNC">,</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>442</span> </span><span class="WHIT">			</span><span class="STRN">'JSON'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'parse'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'stringify'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>443</span> </span><span class="WHIT">			</span><span class="STRN">'Object'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'keys'</span><span class="PUNC">,</span><span class="STRN">'getPrototypeOf'</span><span class="PUNC">,</span><span class="STRN">'create'</span><span class="PUNC">,</span><span class="STRN">'preventExtensions'</span><span class="PUNC">,</span><span class="STRN">'seal'</span><span class="PUNC">,</span><span class="STRN">'freeze'</span><span class="PUNC">,</span><span class="STRN">'isSealed'</span><span class="PUNC">,</span><span class="STRN">'isFrozen'</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>444</span> </span><span class="WHIT">			           </span><span class="STRN">'isExtensible'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'defineProperty'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'defineProperties'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getOwnPropertyDescriptor'</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">'getOwnPropertyNames'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>445</span> </span><span class="WHIT">			</span><span class="STRN">'Array'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'isArray'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>446</span> </span><span class="WHIT">			</span><span class="STRN">'String'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'fromCharCode'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>447</span> </span><span class="WHIT">			</span><span class="STRN">'Date'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'now'</span><span class="PUNC">,</span><span class="STRN">'UTC'</span><span class="PUNC">,</span><span class="STRN">'parse'</span><span class="PUNC">]</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>448</span> </span><span class="WHIT">			</span><span class="STRN">'Math'</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="STRN">'abs'</span><span class="PUNC">,</span><span class="STRN">'acos'</span><span class="PUNC">,</span><span class="STRN">'asin'</span><span class="PUNC">,</span><span class="STRN">'atan'</span><span class="PUNC">,</span><span class="STRN">'atan2'</span><span class="PUNC">,</span><span class="STRN">'ceil'</span><span class="PUNC">,</span><span class="WHIT">
+<span class='line'>449</span> </span><span class="WHIT">			         </span><span class="STRN">'cos'</span><span class="PUNC">,</span><span class="STRN">'exp'</span><span class="PUNC">,</span><span class="STRN">'floor'</span><span class="PUNC">,</span><span class="STRN">'log'</span><span class="PUNC">,</span><span class="STRN">'max'</span><span class="PUNC">,</span><span class="STRN">'min'</span><span class="PUNC">,</span><span class="STRN">'pow'</span><span class="PUNC">,</span><span class="STRN">'random'</span><span class="PUNC">,</span><span class="STRN">'round'</span><span class="PUNC">,</span><span class="STRN">'sin'</span><span class="PUNC">,</span><span class="STRN">'sqrt'</span><span class="PUNC">,</span><span class="STRN">'tan'</span><span class="PUNC">]</span><span class="WHIT">
+<span class='line'>450</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>451</span> </span><span class="WHIT">	</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT"> </span><span class="COMM">// end of exports.secureStandardMethods factory</span><span class="WHIT">
+<span class='line'>452</span> 
+<span class='line'>453</span> 
+<span class='line'>454</span> 
+<span class='line'>455</span> </span><span class="COMM">// builder of secureMethods and securePrivates methods</span><span class="WHIT">
+<span class='line'>456</span> </span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>457</span> 
+<span class='line'>458</span> </span><span class="WHIT">	</span><span class="COMM">/**
+<span class='line'>459</span> 	 * @private
+<span class='line'>460</span> 	 * @throws TypeError
+<span class='line'>461</span> 	 */</span><span class="WHIT">
+<span class='line'>462</span> </span><span class="WHIT">	</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">__secure</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">config</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">errorCallback</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">protectedAttribute</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">test</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>463</span> </span><span class="WHIT">		</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="KEYW">typeof</span><span class="WHIT"> </span><span class="NAME">obj</span><span class="WHIT"> </span><span class="PUNC">!==</span><span class="WHIT"> </span><span class="STRN">'object'</span><span class="WHIT"> </span><span class="PUNC">||</span><span class="WHIT"> </span><span class="NAME">obj</span><span class="WHIT"> </span><span class="PUNC">===</span><span class="WHIT"> </span><span class="KEYW">null</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>464</span> </span><span class="WHIT">			</span><span class="KEYW">throw</span><span class="WHIT"> </span><span class="KEYW">new</span><span class="WHIT"> </span><span class="NAME">TypeError</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="STRN">"Obj is not an object"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>465</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>466</span> </span><span class="WHIT">		
+<span class='line'>467</span> 		</span><span class="COMM">// case when callback is a second parameter (config not provided)</span><span class="WHIT">
+<span class='line'>468</span> </span><span class="WHIT">		</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">__isFunction</span><span class="PUNC">(</span><span class="NAME">config</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">errorCallback</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>469</span> </span><span class="WHIT">			</span><span class="NAME">errorCallback</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">config</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>470</span> </span><span class="WHIT">			</span><span class="NAME">config</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">null</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>471</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>472</span> </span><span class="WHIT">		
+<span class='line'>473</span> 		</span><span class="NAME">config</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">config</span><span class="WHIT"> </span><span class="PUNC">||</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>474</span> </span><span class="WHIT">		</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="KEYW">typeof</span><span class="WHIT"> </span><span class="NAME">config</span><span class="WHIT"> </span><span class="PUNC">!==</span><span class="WHIT"> </span><span class="STRN">"object"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>475</span> </span><span class="WHIT">			</span><span class="KEYW">throw</span><span class="WHIT"> </span><span class="KEYW">new</span><span class="WHIT"> </span><span class="NAME">TypeError</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="STRN">"config is not an object"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>476</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>477</span> </span><span class="WHIT">	
+<span class='line'>478</span> 		</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">errorCallback</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">__isFunction</span><span class="PUNC">(</span><span class="NAME">errorCallback</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>479</span> </span><span class="WHIT">			</span><span class="KEYW">throw</span><span class="WHIT"> </span><span class="KEYW">new</span><span class="WHIT"> </span><span class="NAME">TypeError</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="STRN">"errorCallback is not a function"</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>480</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>481</span> </span><span class="WHIT">	
+<span class='line'>482</span> 		</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">cfg</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>483</span> </span><span class="WHIT">		</span><span class="NAME">cfg</span><span class="PUNC">[</span><span class="NAME">protectedAttribute</span><span class="PUNC">]</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>484</span> </span><span class="WHIT">		</span><span class="PUNC">[</span><span class="STRN">"writable"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"enumerable"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"configurable"</span><span class="PUNC">]</span><span class="PUNC">.</span><span class="NAME">forEach</span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">key</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>485</span> </span><span class="WHIT">			</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">key</span><span class="WHIT"> </span><span class="PUNC">!==</span><span class="WHIT"> </span><span class="NAME">protectedAttribute</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">key</span><span class="WHIT"> </span><span class="KEYW">in</span><span class="WHIT"> </span><span class="NAME">config</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>486</span> </span><span class="WHIT">				</span><span class="NAME">cfg</span><span class="PUNC">[</span><span class="NAME">key</span><span class="PUNC">]</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="PUNC">!</span><span class="NAME">config</span><span class="PUNC">[</span><span class="NAME">key</span><span class="PUNC">]</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>487</span> </span><span class="WHIT">			</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>488</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>489</span> </span><span class="WHIT">		
+<span class='line'>490</span> 		</span><span class="COMM">// array of errors</span><span class="WHIT">
+<span class='line'>491</span> </span><span class="WHIT">		</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">errors</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="PUNC">[</span><span class="PUNC">]</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>492</span> </span><span class="WHIT">		
+<span class='line'>493</span> 		</span><span class="KEYW">for</span><span class="PUNC">(</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">o</span><span class="WHIT"> </span><span class="KEYW">in</span><span class="WHIT"> </span><span class="NAME">obj</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT"> </span><span class="KEYW">if</span><span class="PUNC">(</span><span class="NAME">obj.hasOwnProperty</span><span class="PUNC">(</span><span class="NAME">o</span><span class="PUNC">)</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>494</span> </span><span class="WHIT">			</span><span class="KEYW">if</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">test</span><span class="PUNC">(</span><span class="NAME">o</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>495</span> </span><span class="WHIT">				</span><span class="KEYW">try</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>496</span> </span><span class="WHIT">					</span><span class="NAME">Object.defineProperty</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">obj</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">o</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">cfg</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>497</span> </span><span class="WHIT">				</span><span class="PUNC">}</span><span class="WHIT"> </span><span class="KEYW">catch</span><span class="PUNC">(</span><span class="NAME">ex</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>498</span> </span><span class="WHIT">					</span><span class="NAME">errors.push</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT"> </span><span class="NAME">property</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="NAME">o</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">error</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="NAME">ex</span><span class="WHIT"> </span><span class="PUNC">}</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>499</span> </span><span class="WHIT">				</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>500</span> </span><span class="WHIT">			</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>501</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="PUNC">}</span><span class="WHIT">
+<span class='line'>502</span> </span><span class="WHIT">		
+<span class='line'>503</span> 		</span><span class="COMM">// execute callback when errors</span><span class="WHIT">
+<span class='line'>504</span> </span><span class="WHIT">		</span><span class="NAME">errorCallback</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">errors.length</span><span class="WHIT"> </span><span class="PUNC">></span><span class="WHIT"> </span><span class="NUMB">0</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">errorCallback</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">Object.freeze</span><span class="PUNC">(</span><span class="NAME">errors</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>505</span> </span><span class="WHIT">		
+<span class='line'>506</span> 		</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">obj</span><span class="PUNC">;</span><span class="WHIT">	
+<span class='line'>507</span> 	</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>508</span> </span><span class="WHIT">	
+<span class='line'>509</span> 	
+<span class='line'>510</span> 	
+<span class='line'>511</span> 	</span><span class="COMM">/**
+<span class='line'>512</span> 	 * Makes all methods of given object non-writable. Additional protection can be provided
+<span class='line'>513</span> 	 * with second attribute. 
+<span class='line'>514</span> 	 * @name secure.secureMethods
+<span class='line'>515</span> 	 * @function
+<span class='line'>516</span> 	 * @param {Object} obj an object 
+<span class='line'>517</span> 	 * @param {Object} config a configuration object. Can take enumerable and configurable
+<span class='line'>518</span> 	 *        parameters. By default both of them are set to true
+<span class='line'>519</span> 	 * @param {function} [errorCallback] a function which will be invoked when error occurs
+<span class='line'>520</span> 	 * @returns {object} object from input arguments (obj)
+<span class='line'>521</span> 	 * @throws {TypeError} when obj parameter is not an object
+<span class='line'>522</span> 	 */</span><span class="WHIT">
+<span class='line'>523</span> </span><span class="WHIT">	</span><span class="NAME">exports.secureMethods</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">config</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">errorCallback</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>524</span> </span><span class="WHIT">		
+<span class='line'>525</span> 		</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">__secure</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">config</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">errorCallback</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"writable"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">key</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>526</span> </span><span class="WHIT">				</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">__isFunction</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">[</span><span class="NAME">key</span><span class="PUNC">]</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>527</span> </span><span class="WHIT">			</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>528</span> </span><span class="WHIT">		
+<span class='line'>529</span> 	</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>530</span> </span><span class="WHIT">	
+<span class='line'>531</span> 	
+<span class='line'>532</span> 	
+<span class='line'>533</span> 	</span><span class="COMM">/**
+<span class='line'>534</span> 	 * Marks all private-like members (starting from _ or __ prefix) as not enumerable
+<span class='line'>535</span> 	 * Additional protection can be added (read-only, configurability)
+<span class='line'>536</span> 	 * @name secure.securePrivates
+<span class='line'>537</span> 	 * @function
+<span class='line'>538</span> 	 * @param {Object} obj an object to protect 
+<span class='line'>539</span> 	 * @param {Object} [config] a configuration object
+<span class='line'>540</span> 	 * @param {function} [errorCallback] callback executed when protection of some 
+<span class='line'>541</span> 	 *        private members will fail
+<span class='line'>542</span> 	 * @returns {Object} object from input arguments (obj)
+<span class='line'>543</span> 	 * @throws {TypeError} when obj parameter is not an object
+<span class='line'>544</span> 	 */</span><span class="WHIT">
+<span class='line'>545</span> </span><span class="WHIT">	</span><span class="NAME">exports.securePrivates</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">config</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">errorCallback</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>546</span> </span><span class="WHIT">		
+<span class='line'>547</span> 		</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">__secure</span><span class="PUNC">(</span><span class="NAME">obj</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">config</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">errorCallback</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"enumerable"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">key</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>548</span> </span><span class="WHIT">			</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">key</span><span class="PUNC">[</span><span class="NUMB">0</span><span class="PUNC">]</span><span class="WHIT"> </span><span class="PUNC">===</span><span class="WHIT"> </span><span class="STRN">'_'</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>549</span> </span><span class="WHIT">		</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">	
+<span class='line'>550</span> 		
+<span class='line'>551</span> 	</span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>552</span> 
+<span class='line'>553</span> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>554</span> 
+<span class='line'>555</span> 
+<span class='line'>556</span> 
+<span class='line'>557</span> </span><span class="COMM">/**
+<span class='line'>558</span>  * Event listener. Possible events:
+<span class='line'>559</span>  * - "eval" - emitted when eval function executed
+<span class='line'>560</span>  * - "insecure" - emitted when the module failed to protect at least one of globals
+<span class='line'>561</span>  * 
+<span class='line'>562</span>  * @function
+<span class='line'>563</span>  * @param name {string} event name
+<span class='line'>564</span>  * @param callback {function} callback function
+<span class='line'>565</span>  * @example require("ddr-secure").on("eval", function(caller){ console.log("Eval executed in function: "+caller); });
+<span class='line'>566</span>  */</span><span class="WHIT">
+<span class='line'>567</span> </span><span class="PUNC">[</span><span class="STRN">"on"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"once"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="STRN">"removeListener"</span><span class="PUNC">]</span><span class="PUNC">.</span><span class="NAME">forEach</span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">mth</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>568</span> </span><span class="WHIT">	</span><span class="NAME">exports</span><span class="PUNC">[</span><span class="NAME">mth</span><span class="PUNC">]</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">__eventEmitter</span><span class="PUNC">[</span><span class="NAME">mth</span><span class="PUNC">]</span><span class="PUNC">.</span><span class="NAME">bind</span><span class="PUNC">(</span><span class="NAME">__eventEmitter</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>569</span> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>570</span> 
+<span class='line'>571</span> 
+<span class='line'>572</span> 
+<span class='line'>573</span> </span><span class="COMM">/**
+<span class='line'>574</span>  * Statuses of protection level. The variable specifies
+<span class='line'>575</span>  * which feature become protected after module load. 
+<span class='line'>576</span>  * @name secure.status
+<span class='line'>577</span>  * @type Object
+<span class='line'>578</span>  * @example require('node-secure').status.NAN_VALUE
+<span class='line'>579</span>  * @frozen
+<span class='line'>580</span>  */</span><span class="WHIT">
+<span class='line'>581</span> </span><span class="NAME">exports.status</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">Object.freeze</span><span class="PUNC">(</span><span class="NAME">__status</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>582</span> 
+<span class='line'>583</span> 
+<span class='line'>584</span> 
+<span class='line'>585</span> </span><span class="COMM">/**
+<span class='line'>586</span>  * Checks the status of the global variables protection
+<span class='line'>587</span>  * @name secure.isSecure
+<span class='line'>588</span>  * @function
+<span class='line'>589</span>  * @return {boolean} true if the module managed to protect all globals, false otherwise
+<span class='line'>590</span>  */</span><span class="WHIT">
+<span class='line'>591</span> </span><span class="NAME">exports.isSecure</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>592</span> </span><span class="WHIT">	</span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">Object.keys</span><span class="PUNC">(</span><span class="NAME">__status</span><span class="PUNC">)</span><span class="PUNC">.</span><span class="NAME">every</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">s</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT"> </span><span class="KEYW">return</span><span class="WHIT"> </span><span class="NAME">__status</span><span class="PUNC">[</span><span class="NAME">s</span><span class="PUNC">]</span><span class="PUNC">;</span><span class="WHIT"> </span><span class="PUNC">}</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>593</span> </span><span class="PUNC">}</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>594</span> 
+<span class='line'>595</span> 
+<span class='line'>596</span> 
+<span class='line'>597</span> </span><span class="COMM">// Protects the module itself</span><span class="WHIT">
+<span class='line'>598</span> </span><span class="NAME">exports.secureMethods</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="NAME">exports</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="PUNC">{</span><span class="WHIT"> </span><span class="NAME">enumerable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">true</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">configurable</span><span class="PUNC">:</span><span class="WHIT"> </span><span class="KEYW">false</span><span class="WHIT"> </span><span class="PUNC">}</span><span class="WHIT"> </span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>599</span> 
+<span class='line'>600</span> 
+<span class='line'>601</span> 
+<span class='line'>602</span> </span><span class="COMM">// notifies that some of globals are not secure. Event notification happen</span><span class="WHIT">
+<span class='line'>603</span> </span><span class="COMM">// as the nearest callback execution. If direct test is required</span><span class="WHIT">
+<span class='line'>604</span> </span><span class="COMM">// call manually isSecure() method directly after module load</span><span class="WHIT">
+<span class='line'>605</span> </span><span class="PUNC">!</span><span class="NAME">exports.isSecure</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="WHIT"> </span><span class="PUNC">&&</span><span class="WHIT"> </span><span class="NAME">process.nextTick</span><span class="PUNC">(</span><span class="KEYW">function</span><span class="PUNC">(</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT">
+<span class='line'>606</span> </span><span class="WHIT">		</span><span class="KEYW">var</span><span class="WHIT"> </span><span class="NAME">failures</span><span class="WHIT"> </span><span class="PUNC">=</span><span class="WHIT"> </span><span class="NAME">Object.keys</span><span class="PUNC">(</span><span class="NAME">__status</span><span class="PUNC">)</span><span class="PUNC">.</span><span class="NAME">filter</span><span class="PUNC">(</span><span class="WHIT"> </span><span class="KEYW">function</span><span class="PUNC">(</span><span class="NAME">s</span><span class="PUNC">)</span><span class="PUNC">{</span><span class="WHIT"> </span><span class="KEYW">return</span><span class="WHIT"> </span><span class="PUNC">!</span><span class="NAME">__status</span><span class="PUNC">[</span><span class="NAME">s</span><span class="PUNC">]</span><span class="PUNC">;</span><span class="WHIT"> </span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>607</span> </span><span class="WHIT">		</span><span class="NAME">__eventEmitter.emit</span><span class="PUNC">(</span><span class="STRN">"insecure"</span><span class="PUNC">,</span><span class="WHIT"> </span><span class="NAME">failures</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT">
+<span class='line'>608</span> </span><span class="WHIT">	</span><span class="PUNC">}</span><span class="PUNC">)</span><span class="PUNC">;</span><span class="WHIT"> 
+<span class='line'>609</span> 
+<span class='line'>610</span> </span></pre></body></html>

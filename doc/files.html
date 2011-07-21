@@ -1,0 +1,322 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		
+		<title>JsDoc Reference - File Index</title>
+		<meta name="generator" content="JsDoc Toolkit" />
+		
+		<style type="text/css">
+		/* default.css */
+body
+{
+	font: 12px "Lucida Grande", Tahoma, Arial, Helvetica, sans-serif;
+	width: 800px;
+}
+
+.header
+{
+	clear: both;
+	background-color: #ccc;
+	padding: 8px;
+}
+
+h1
+{
+	font-size: 150%;
+	font-weight: bold;
+	padding: 0;
+	margin: 1em 0 0 .3em;
+}
+
+hr
+{
+	border: none 0;
+	border-top: 1px solid #7F8FB1;
+	height: 1px;
+}
+
+pre.code
+{
+	display: block;
+	padding: 8px;
+	border: 1px dashed #ccc;
+}
+
+#index
+{
+	margin-top: 24px;
+	float: left;
+	width: 160px;
+	position: absolute;
+	left: 8px;
+	background-color: #F3F3F3;
+	padding: 8px;
+}
+
+#content
+{
+	margin-left: 190px;
+	width: 600px;
+}
+
+.classList
+{
+	list-style-type: none;
+	padding: 0;
+	margin: 0 0 0 8px;
+	font-family: arial, sans-serif;
+	font-size: 1em;
+	overflow: auto;
+}
+
+.classList li
+{
+	padding: 0;
+	margin: 0 0 8px 0;
+}
+
+.summaryTable { width: 100%; }
+
+h1.classTitle
+{
+	font-size:170%;
+	line-height:130%;
+}
+
+h2 { font-size: 110%; }
+caption, div.sectionTitle
+{
+	background-color: #7F8FB1;
+	color: #fff;
+	font-size:130%;
+	text-align: left;
+	padding: 2px 6px 2px 6px;
+	border: 1px #7F8FB1 solid;
+}
+
+div.sectionTitle { margin-bottom: 8px; }
+.summaryTable thead { display: none; }
+
+.summaryTable td
+{
+	vertical-align: top;
+	padding: 4px;
+	border-bottom: 1px #7F8FB1 solid;
+	border-right: 1px #7F8FB1 solid;
+}
+
+/*col#summaryAttributes {}*/
+.summaryTable td.attributes
+{
+	border-left: 1px #7F8FB1 solid;
+	width: 140px;
+	text-align: right;
+}
+
+td.attributes, .fixedFont
+{
+	line-height: 15px;
+	color: #002EBE;
+	font-family: "Courier New",Courier,monospace;
+	font-size: 13px;
+}
+
+.summaryTable td.nameDescription
+{
+	text-align: left;
+	font-size: 13px;
+	line-height: 15px;
+}
+
+.summaryTable td.nameDescription, .description
+{
+	line-height: 15px;
+	padding: 4px;
+	padding-left: 4px;
+}
+
+.summaryTable { margin-bottom: 8px; }
+
+ul.inheritsList
+{
+	list-style: square;
+	margin-left: 20px;
+	padding-left: 0;
+}
+
+.detailList {
+	margin-left: 20px; 
+	line-height: 15px;
+}
+.detailList dt { margin-left: 20px; }
+
+.detailList .heading
+{
+	font-weight: bold;
+	padding-bottom: 6px;
+	margin-left: 0;
+}
+
+.light, td.attributes, .light a:link, .light a:visited
+{
+	color: #777;
+	font-style: italic;
+}
+
+.fineprint
+{
+	text-align: right;
+	font-size: 10px;
+}
+		</style>
+	</head>
+	
+	<body>
+		<div id="header">
+</div>
+		
+		<div id="index">
+			<div align="center"><a href="index.html">Class Index</a>
+| <a href="files.html">File Index</a></div>
+<hr />
+<h2>Classes</h2>
+<ul class="classList">
+	
+	<li><i><a href="symbols/_global_.html">_global_</a></i></li>
+	
+	<li><a href="symbols/Error.html">Error</a></li>
+	
+	<li><a href="symbols/secure.html">secure</a></li>
+	
+	<li><a href="symbols/secure.SecurityError.html">secure.SecurityError</a></li>
+	
+</ul>
+<hr />
+		</div>
+		
+		<div id="content">
+			<h1 class="classTitle">File Index</h1>
+			
+			
+			<div>
+				<h2><a href="symbols/src/js_node-secure.js.html">node-secure.js</a></h2>
+				
+<p>
+This simple module allows to protect the code using ECMAScript 5 features,
+even when strict mode is not available.
+</p><p>
+First it makes all global constants (undefined, NaN, Infinity) non-writable.
+and non-configurable. 
+How important it is you can check by running basic example:
+- override undefined with real value
+- run http server and make request
+Due to unprotected comparisons to undefined value in http module, the entire 
+server will fail with TypeError (tested on node.js 0.4.8)
+Such basic code can be intentionally injected to a server by a hacker
+or created by mistake by unexperienced developer. 
+</p><p>
+Secondly - the module allows you to protect your own code from
+intentional/unintentional overriding. The main element which you should
+protect are your methods. In most of the cases your code won't work properly
+if your methods will be overridden. 
+Other important thing is to hide private-like members from being enumerable.
+Especially when they are not physically private (i.e by usage of closures), 
+but marked as private with naming convention (using single or double 
+underscore prefix). 
+</p><p>
+Third thing is to control execution of eval function - which brings the bigger
+risk of potential attacks (execution of injected code fragments). Theoretically
+there is possible to override eval (i.e. with empty function), however it can
+break other modules which operate on eval function. This module extends eval
+with notification mechanism - every time when someone execute eval your program
+will be notified about it with "eval" event. The event takes reference to 
+executor function.
+</p><p>
+The dynamic nature of JavaScript gives to developer a freedom of quick
+and smart programming. However server-side code should be protected as much
+as possible from code injections and hacking. The visibility of code and 
+easy code inspection mechanism often can leave open doors for bad
+intensions and code replacements. 
+</p>
+
+
+<pre>
+USAGE
+
+1. Just load the module to protect global statics (undefined, NaN, Infinity)
+   example: require('node-secure');
+   
+2. Just load the module to control execution of eval (evil?) function.
+   With this module eval will work as previously, but every time someone
+   execute it, you will get an event notification
+   Example: 
+      var secure = require("node-secure");
+      secure.on("eval", function(f){"Evaluation executed in function "+f.name});
+      eval("6*7"); // will emit the "eval" event before code execution
+      
+3. Protect your object method for being overridden. It is especially 
+   important in case of custom modules.
+   Example:
+      var secure = require("node-secure");
+      secure.secureMethods(exports); // protects all methods from current module
+      secure.securePrivates(myObj); // makes all properties starting from "_" non-enumerable
+      
+4. Protect standard JavaScript methods from being overridden.  
+   Example:
+      var secure = require("node-secure");
+      secure.secureStandardMethods();
+</pre>
+
+
+
+<pre>
+
+API
+     SecurityError(msg, problems)            : constructor
+     secureStandardMethods(problemHandler)   : function
+     secureMethods(obj, config, callback)    : function
+     securePrivates(obj, config, callback)   : function
+     on(callback)                            : function
+     once(callback)                          : function
+     removeListener(callback)                : function
+     isSecure()                              : function
+     status                                  : object
+     eval                                    : event
+     insecure                                : event
+     
+</pre>
+
+
+<p>
+This version is under development.<br/>
+Latest stable version is 0.2.0 <br/>
+Use GIT tags for it or npm: npm install node-secure <br/> 
+
+Public domain <br/>
+You use this software at your own risk.
+</p>
+				<dl>
+					
+						<dt class="heading">Author:</dt>
+						<dd>David de Rosier</dd>
+					
+					
+						<dt class="heading">Version:</dt>
+							<dd>0.3.0alpha</dd>
+					
+					
+					
+				</dl>
+			</div>
+			<hr />
+			
+			
+		</div>
+		<div class="fineprint" style="clear:both">
+			
+			Documentation generated by <a href="http://code.google.com/p/jsdoc-toolkit/" target="_blankt">JsDoc Toolkit</a> 2.4.0 on Thu Jul 21 2011 10:53:52 GMT+0100 (BST)
+		</div>
+	</body>
+</html>

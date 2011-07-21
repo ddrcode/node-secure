@@ -1,7 +1,9 @@
 /**
+ * @fileOverview 
+ * <p>
  * This simple module allows to protect the code using ECMAScript 5 features,
  * even when strict mode is not available.
- * 
+ * </p><p>
  * First it makes all global constants (undefined, NaN, Infinity) non-writable.
  * and non-configurable. 
  * How important it is you can check by running basic example:
@@ -11,7 +13,7 @@
  * server will fail with TypeError (tested on node.js 0.4.8)
  * Such basic code can be intentionally injected to a server by a hacker
  * or created by mistake by unexperienced developer. 
- * 
+ * </p><p>
  * Secondly - the module allows you to protect your own code from
  * intentional/unintentional overriding. The main element which you should
  * protect are your methods. In most of the cases your code won't work properly
@@ -20,7 +22,7 @@
  * Especially when they are not physically private (i.e by usage of closures), 
  * but marked as private with naming convention (using single or double 
  * underscore prefix). 
- * 
+ * </p><p>
  * Third thing is to control execution of eval function - which brings the bigger
  * risk of potential attacks (execution of injected code fragments). Theoretically
  * there is possible to override eval (i.e. with empty function), however it can
@@ -28,15 +30,16 @@
  * with notification mechanism - every time when someone execute eval your program
  * will be notified about it with "eval" event. The event takes reference to 
  * executor function.
- * 
+ * </p><p>
  * The dynamic nature of JavaScript gives to developer a freedom of quick
  * and smart programming. However server-side code should be protected as much
  * as possible from code injections and hacking. The visibility of code and 
  * easy code inspection mechanism often can leave open doors for bad
  * intensions and code replacements. 
+ * </p>
  * 
- * ------------------------------------------------------------------------------
  * 
+ * <pre>
  * USAGE
  * 
  * 1. Just load the module to protect global statics (undefined, NaN, Infinity)
@@ -61,33 +64,41 @@
  *    Example:
  *       var secure = require("node-secure");
  *       secure.secureStandardMethods();
+ * </pre>
  * 
- * ------------------------------------------------------------------------------
+ * 
+ * 
+ * <pre>
  * 
  * API
- * 		SecurityError(msg, problems)			: constructor
- * 		secureStandardMethods(problemHandler)	: function
- * 		secureMethods(obj, config, callback)	: function
- * 		securePrivates(obj, config, callback)	: function
- * 		on(callback)							: function
- * 		once(callback)							: function
- * 		removeListener(callback)				: function
- * 		isSecure()								: function
- * 		status									: object
- * 		eval									: event
- * 		insecure								: event
+ *      SecurityError(msg, problems)            : constructor
+ *      secureStandardMethods(problemHandler)   : function
+ *      secureMethods(obj, config, callback)    : function
+ *      securePrivates(obj, config, callback)   : function
+ *      on(callback)                            : function
+ *      once(callback)                          : function
+ *      removeListener(callback)                : function
+ *      isSecure()                              : function
+ *      status                                  : object
+ *      eval                                    : event
+ *      insecure                                : event
+ *      
+ * </pre>
+ *
  * 
- * ------------------------------------------------------------------------------
+ * <p>
+ * This version is under development.<br/>
+ * Latest stable version is 0.2.0 <br/>
+ * Use GIT tags for it or npm: npm install node-secure <br/> 
  * 
- * Public domain
+ * Public domain <br/>
+ * You use this software at your own risk.
+ * </p>
+ * 
  * @author   David de Rosier
  * @version  0.3.0alpha
+ * @source   https://github.com/ddrcode/node-secure
  * 
- * This version is under development.
- * Latest stable version is 0.2.0 
- * Use GIT tags for it or npm: npm install node-secure 
- * 
- * You use this software at your own risk.
  */
 
 
@@ -97,7 +108,18 @@ var EventEmitter = require("events").EventEmitter,
 	;
 
 
+/**
+ * This namespace contains all elements provided through exports
+ * variable. Namespace name need to be defined by developer as a 
+ * result of require function. By convention is suggested to use
+ * the name 'secure'.<br/>
+ * See <a href="../files.html">the file description</a>
+ * @example var secure = require('node-secure');
+ * @name secure 
+ * @namespace Namespace containing all elements of the module
+ */
 var nodeSecure = exports;
+
 
 
 /**
@@ -193,8 +215,9 @@ var __eventEmitter = (function(){
 
 /**
  * Error object constructor dedicated to security issues.
- * @constructor
- * @augments Error
+ * @name secure.SecurityError
+ * @constructor 
+ * @extends Error
  * @param {string} msg error message
  * @param {Array} [problems] an array of problems
  */
@@ -257,6 +280,7 @@ var __isFunction = function(test){
 
 
 /**
+ * <p>
  * Protects methods of standard JavaScript objects from being overridden. 
  * The optional parameter of the method defines how to handle situations when
  * function recognize some issues (ie. already overridden method). Three options
@@ -265,32 +289,42 @@ var __isFunction = function(test){
  * b) function run with boolean attribute true - SecurityError will be thrown.
  * c) function run with function as an attribute - the callback will be invoked.
  * In all three cases an array of problems will be passed as an attribute.
- * 
+ * </p><p>
  * Function returns the module object which means it can be invoked directly
  * after require, without overlapping the module context (see example).
- * 
+ * </p><p>
  * Function does not break when internal error happen. It tries to protect as 
  * many standard methods as possible. Finally it produces the list of problems.  
- * 
+ * </p><p>
  * Function executes only once. After that it replaces itself with an empty
- * function to avoid situation with multiple attempts of standard object
- * protection. It also means that after first execution the function releases
- * its resources. 
- *  
- * @param {boolean|function} [problemHandler] 
+ * function to avoid situation when multiple attempts of standard object
+ * protection happen. It also means that after first execution the function 
+ * releases its resources. 
+ * </p> 
+ * 
+ * @name secure.secureStandardMethods
+ * @function
+ * @param {boolean|function} [problemHandler] boolean or a function
  * @returns module object
  * @throws {SecurityError} when problems found and function invoked with 
  * 		   boolean argument set to true
  * @example
- * 			var secure = require("node-secure").secureStandardMethods(
- * 				function(problems){
- * 					console.log("Can't continue due to security threats");
- * 					console.log(problems);
- *					process.exit(1); 			   
- * 				});
+ *   var secure = require("node-secure").secureStandardMethods(
+ * 	      function(problems){
+ *        console.log("Can't continue due to security threats");
+ *        console.log(problems);
+ *        process.exit(1); 			   
+ *      });
  */
 exports.secureStandardMethods = (function(prototypes, objects){
 	
+
+		/**
+		 * Array of issues found during standard method protection.
+		 * The object is extended with one custom method: add. 
+		 * @private
+		 * @type {Array}
+		 */
 		var __problems = (function(){
 				var arr = [];
 				arr.add = function(key, desc){
@@ -299,6 +333,14 @@ exports.secureStandardMethods = (function(prototypes, objects){
 				return arr;
 			})();
 	
+		
+		/**
+		 * Function iterates through an map of object and method names
+		 * trying to change their property descriptors to
+		 * {writable: false, configurable: false}.  
+		 * @private
+		 * @param {Object} elems a map of object and method names
+		 */
 		var __iterator = function(elems){
 			var proto = elems===prototypes;
 			Object.keys(elems).forEach(function(p){
@@ -337,6 +379,14 @@ exports.secureStandardMethods = (function(prototypes, objects){
 			});
 		};
 		
+		
+		/**
+		 * Real implementation of secureStandardMethods function. 
+		 * Moved to internal/private function to let it to be internally
+		 * overridden. Public function won't be able to override itself 
+		 * because is protected.
+		 * @private
+		 */
 		var __secureStandardMethods = function(problemHandler){
 			
 				if( arguments.length > 0 && typeof problemHandler !== "boolean" && !__isFunction(problemHandler) ) {
@@ -358,12 +408,14 @@ exports.secureStandardMethods = (function(prototypes, objects){
 				}
 				
 				// override itself after first execution
-				__secureStandardMethods = function(){
+				__problems = prototypes = objects = __iterator = null;
+				/** @ignore */ __secureStandardMethods = function(){
 					return nodeSecure;
 				};
 				
 				return nodeSecure;
 			};
+			
 			
 		return function(){
 				return __secureStandardMethods.apply(nodeSecure, arguments);
@@ -459,12 +511,14 @@ exports.secureStandardMethods = (function(prototypes, objects){
 	/**
 	 * Makes all methods of given object non-writable. Additional protection can be provided
 	 * with second attribute. 
-	 * @param obj {object} Object 
-	 * @param config {object} configuration object. Can take enumerable and configurable
+	 * @name secure.secureMethods
+	 * @function
+	 * @param {Object} obj an object 
+	 * @param {Object} config a configuration object. Can take enumerable and configurable
 	 *        parameters. By default both of them are set to true
+	 * @param {function} [errorCallback] a function which will be invoked when error occurs
 	 * @returns {object} object from input arguments (obj)
 	 * @throws {TypeError} when obj parameter is not an object
-	 * @example
 	 */
 	exports.secureMethods = function(obj, config, errorCallback) {
 		
@@ -479,13 +533,14 @@ exports.secureStandardMethods = (function(prototypes, objects){
 	/**
 	 * Marks all private-like members (starting from _ or __ prefix) as not enumerable
 	 * Additional protection can be added (read-only, configurability)
-	 * @param obj {object} Object to protect 
-	 * @param config {object} (optional) configuration object
-	 * @param errorCallback {function} callback executed when protection of some 
+	 * @name secure.securePrivates
+	 * @function
+	 * @param {Object} obj an object to protect 
+	 * @param {Object} [config] a configuration object
+	 * @param {function} [errorCallback] callback executed when protection of some 
 	 *        private members will fail
-	 * @returns {object} object from input arguments (obj)
+	 * @returns {Object} object from input arguments (obj)
 	 * @throws {TypeError} when obj parameter is not an object
-	 * @example
 	 */
 	exports.securePrivates = function(obj, config, errorCallback) {
 		
@@ -516,7 +571,11 @@ exports.secureStandardMethods = (function(prototypes, objects){
 
 
 /**
- * Statuses of protection level
+ * Statuses of protection level. The variable specifies
+ * which feature become protected after module load. 
+ * @name secure.status
+ * @type Object
+ * @example require('node-secure').status.NAN_VALUE
  * @frozen
  */
 exports.status = Object.freeze(__status);
@@ -524,7 +583,9 @@ exports.status = Object.freeze(__status);
 
 
 /**
- * Checks the status global variables protection
+ * Checks the status of the global variables protection
+ * @name secure.isSecure
+ * @function
  * @return {boolean} true if the module managed to protect all globals, false otherwise
  */
 exports.isSecure = function(){
