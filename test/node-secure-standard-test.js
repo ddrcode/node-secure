@@ -39,6 +39,16 @@ var tests = {
 		assert.equal( typeof secure.securePrivates, "function", "typeof secure.securePrivates" );
 		assert.equal( typeof secure.isSecure, "function", "typeof secure.isSecure" );
 		assert.equal( typeof secure.status, "object", "typeof secure.status" );
+
+		assert.ok( secure.status.EVAL, "status.EVAL" );
+		assert.ok( secure.status.UNDEFINED_VALUE, "status.UNDEFINED_VALUE" );
+		assert.ok( secure.status.UNDEFINED_PROTECTION, "status.UNDEFINED_PROTECTION" );
+		assert.ok( secure.status.NAN_VALUE, "status.NAN_VALUE" );
+		assert.ok( secure.status.NAN_PROTECTION, "status.NAN_PROTECTION" );
+		assert.ok( secure.status.INFINITY_VALUE, "status.INFINITY_VALUE" );
+		assert.ok( secure.status.INFINITY_PROTECTION, "status.INFINITY_PROTECTION" );
+		assert.ok( secure.status.ISNAN_VALUE, "status.ISNAN_VALUE" );
+		assert.ok( secure.status.ISNAN_PROTECTION, "status.ISNAN_PROTECTION" );
 		
 		assert.equal( secure.isSecure(), true, "secure.isSecure()");
 	},

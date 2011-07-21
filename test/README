@@ -13,5 +13,7 @@ TEST 2: node-secure-overridden-test.js
 Test with overridden global values.
 Globals are not originally protected here 
 
- 
-
+TEST 3: node-secure-events-test 
+Overrides and protects some globals and standard functions than
+laods the module. The tests checks if 'insecure' event is fired
+automatically. 
